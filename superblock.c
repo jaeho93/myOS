@@ -26,7 +26,7 @@ int main(void)
 	int sb_inode_empty;
 
 	
-	r_sb_inode(fp, 2);
+	r_sb_inode(fp, 3);
 	sb_inode_empty = f_sb_inode_empty(fp);
 	printf("%d", sb_inode_empty);
 
@@ -44,7 +44,7 @@ int f_sb_inode_empty(FILE *fp)
 	{
 		if(getc(fp) == '0')
 		{
-			cnt = i;
+			cnt = i+1;
 			break;
 		}
 	}
@@ -53,14 +53,14 @@ int f_sb_inode_empty(FILE *fp)
 
 void u_sb_inode(FILE *fp, int cnt)
 {
-fseek(fp, 16+cnt, 0);  	// go superblock inode
+fseek(fp, 15+cnt, 0);  	// go superblock inode
 	putc('1', fp);
 	fflush(fp);
 }
 
 void r_sb_inode(FILE *fp, int cnt)
 {
-fseek(fp, 16+cnt, 0);  	// go superblock inode
+fseek(fp, 15+cnt, 0);  	// go superblock inode
 	putc('0', fp);
 	fflush(fp);
 }
@@ -75,12 +75,12 @@ void p_sb_inode_used(FILE *fp)
 	{
 		if(getc(fp) == '1')
 		{
-			printf("%d  ", ftell(fp) - 17);
+			printf("%d  ", ftell(fp) - 16);
 		}
 	}
 }
 
-int 	f_sb_data_empty(FILE *);		// 비어있는 superblock_data 찾아서 숫자 리턴; 
+int 	f_sb_data_empty(FILE *fp)		// 비어있는 superblock_data 찾아서 숫자 리턴; 
 {
 	int cnt;
 
@@ -90,25 +90,25 @@ int 	f_sb_data_empty(FILE *);		// 비어있는 superblock_data 찾아서 숫자 
 	{
 		if(getc(fp) == '0')
 		{
-			cnt = i;
+			cnt = i+1;
 			break;
 		}
 	}
 	return cnt;
 }
-void 	u_sb_data(FILE *, int);		// superblock_data 사용
+void 	u_sb_data(FILE *fp, int cnt)		// superblock_data 사용
 {
-fseek(fp, 528+cnt, 0);  	// go superblock inode
+fseek(fp, 527+cnt, 0);  	// go superblock inode
 	putc('1', fp);
 	fflush(fp);
 }
-void    r_sb_data(FILE *, int);		// superblock_data 제거
+void    r_sb_data(FILE *fp, int cnt)		// superblock_data 제거
 {
-fseek(fp, 528+cnt, 0);  	// go superblock inode
+fseek(fp, 527+cnt, 0);  	// go superblock inode
 	putc('0', fp);
 	fflush(fp);
 }
-void	p_sb_data_used(FILE *);		// 사용중인 superblock_data 출력;
+void	p_sb_data_used(FILE *fp)		// 사용중인 superblock_data 출력;
 {
 	//gsi(0);
 	fseek(fp, 528, 0);
@@ -118,7 +118,7 @@ void	p_sb_data_used(FILE *);		// 사용중인 superblock_data 출력;
 	{
 		if(getc(fp) == '1')
 		{
-			printf("%d  ", ftell(fp) - 17);
+			printf("%d  ", ftell(fp) - 528);
 		}
 	}
 }

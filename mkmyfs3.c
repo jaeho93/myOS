@@ -2,6 +2,11 @@
 #include <stdlib.h>
 #include <time.h>
 
+#define SB_SIZE 1536
+#define BB_SIZE 16
+#define INODE_SIZE 39936
+
+
 void binary(int, char*, int);
 		
 int main(void)
@@ -37,13 +42,13 @@ int main(void)
 	binary(now, strTime, 30);
 	fprintf(out, "%s", strTime);	  // 아이노드리스트_파일생성날짜 > 루트디렉터리 30개
 	fprintf(out, "00000000000000010");// 아이노드리스트_파일크기 > 최대로 가질수있는 크기 : 129,280바이트 1010 데이타블록 17개
-	fprintf(out, "0000000001");		  // 아이노드리스트_다이렉트블록 > 루트디렉터리의 데이터블록 주소
+	fprintf(out, "0000000010");		  // 아이노드리스트_다이렉트블록 > 루트디렉터리의 데이터블록 주소
 	fprintf(out, "0000000000");		  // 아이노드리스트_싱글다이렉트블록 > 루트디렉터리는 필요 없으므로 NULL값 10개
 	fprintf(out, "0000000000");		  // 아이노드리스트_더블다이렉트블록 > 루트디렉터리는 필요 없으므로 NULL값
 
 	for(int i = 0; i < 511; i++)
 	{
-		for(int j = 0; j < 77; j++)
+		for(int j = 0; j < 78; j++)
 		{
 			fprintf(out, "0");
 		}

@@ -3,6 +3,15 @@
 #include <string.h>
 #include <time.h>
 
+typedef struct inode
+{
+	int ftype;
+	int time;
+	int size;
+	int direct;
+	int single;
+	int Double;
+} inode;
 typedef struct dir_link
 {
 	char name[5];
@@ -16,17 +25,21 @@ dir_link * dir_to_list(FILE *);
 void binary(int time, char*str, int num);
 int binary_changer(FILE* fp,int size);
 void print_list(dir_link*);
+void print_list_i(dir_link*);
+void print_list_l(dir_link*, FILE*);
+void print_inode_info(int num, FILE *fp);
+void get_inode(FILE * fp, inode * ip, int num);
 
 int main(void)
 {
-	FILE *fp;
 	time_t  now;
 
 	char com1[11];			// myls에서만 되니까 수정이 필요하다.
 	char com2[3];
 	int now_dir = 1;
-
+	FILE *fp;
 	fp = fopen("test", "w+");
+
 
 
 	fprintf(fp, "000");
@@ -110,6 +123,12 @@ h = dir_to_list(fp);
 print_list(h);
 
 
+print_list_i(h);
+
+
+print_list_l(h, fp);
+
+
 
 
 
@@ -191,13 +210,61 @@ void print_list(dir_link * head)
 		else
 		{
 			printf("%s\n", head -> name);
-			getchar();
 			print_list(head -> next);
 		}
 	}
 
-			
+void print_list_i(dir_link* head)
+	{
+		if (head == NULL)
+		{
+			return;
+		}
+		else
+		{
+			printf("%d ", head -> data_block); 
+			printf("%s\n", head -> name);
+			getchar();
+			print_list_i(head -> next);
+		}
+	}
+
+void print_list_l(dir_link* head, FILE * fp)
+	{
+		if (head == NULL)
+		{
+			return;
+		}
+		else
+		{
+			print_inode_info(head -> data_block, fp);
+			printf("%s\n", head -> name);
+			getchar();
+			print_list_l(head -> next, fp);
+		}
+	}
+void print_inode_info(int num, FILE *fp)
+{
+	inode * ip = (inode *)malloc(sizeof(inode));
+	get_inode(fp, ip, 3 + 78 * (num - 1));
+	printf("%c ", (ip -> ftype) ? '-' : 'd');
+	printf("%17d ", ip -> size);
+	printf("%d ", ip -> time);
+	free(ip);
+}
 		
 
+void get_inode(FILE * fp, inode * ip, int num)
+{
+	fseek(fp, num, 0); // 원래는 1552+78*num
+
+	ip -> ftype 	= binary_changer(fp, 1);
+	ip -> time		= binary_changer(fp, 30);
+	ip -> size		= binary_changer(fp, 17);
+	ip -> direct	= binary_changer(fp, 10);
+	ip -> single	= binary_changer(fp, 10);
+	ip -> Double	= binary_changer(fp, 10);
+	return;
+}
 
 

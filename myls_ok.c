@@ -17,6 +17,7 @@ typedef struct linked_list_dir
 {
 	char name[5];
 	int inode_num;
+	struct linked_list_dir * sib;
 	struct linked_list_dir * next;
 } ELEMENT;
 typedef ELEMENT *LINK;
@@ -68,6 +69,7 @@ void bin_to_str(FILE *fp)
 
 LINK dir_to_list(FILE *fp)
 {
+	char ftype;
 	LINK head = NULL;
 	bin_to_str(fp);
 	if(fname[0] == '\0')
@@ -82,6 +84,17 @@ LINK dir_to_list(FILE *fp)
 			fname[i] = 0;
 		head -> inode_num = binary_changer(fp, 10);
 		head -> next = dir_to_list(fp);
+		if(!strcmp(head -> name, ".") && !strcmp(head -> name, ".."))
+		{
+			fseek(fp, 1552 + 79 * (head -> inode_num-1), 0);
+			if((ftype = getc(fp)) == '0')
+			{
+				fseek(fp, 16+512+1024+79*512+128*8*(head -> inode_num-1), 0);
+				head -> sib = dir_to_list(fp);
+			}
+			else head -> sib = NULL;
+		}	
+
 		return head;
 	}
 }

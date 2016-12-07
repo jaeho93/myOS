@@ -21,14 +21,25 @@ typedef struct linked_list_dir
 	struct linked_list_dir * next;
 } ELEMENT;
 
+typedef struct linked_list_prompt
+{
+	char name[5];
+	struct linked_list_prompt * next;
+} ELEMENT_prompt;
+
+typedef ELEMENT_prompt *LINK2;
+
 
 
 typedef ELEMENT *LINK;
 
 int nowdir_inode = 1; // 루트 디렉터리의 경우!!!!!!!!!!!
+LINK now_h = NULL;
+char now_name[5] = "/";
 char fname[5];
 int root = 0;
 char pstr[1000] = {};
+int SWITCH = 0;
 
 
 LINK dir_to_list(FILE *);
@@ -41,9 +52,8 @@ void print_list_l(LINK, FILE*);
 void get_inode(FILE *fp, inode * ip, int num);
 void link_free(LINK);
 void print_inode_info(int num, FILE *fp);
-void prompt(LINK head, FILE * fp);
 char * find_my_name(LINK head, int myinode);
-void mypwd(LINK head, FILE * fp);
+int find_my_inode(LINK head, char * my_name);
 
 int 	f_sb_inode_empty(FILE *);		// 비어있는 superblock_inode 찾아서 숫자 리턴; 
 void 	u_sb_inode(FILE *, int);		// superblock_inode 사용
@@ -64,6 +74,9 @@ LINK dir_to_list_sib(FILE *fp, int sb_inode_empty);
 void binary(int time, char*str, int num);
 void write_name_to_dir(FILE * fp, LINK head, int sb_inode_empty, char *newdir_str);
 void name_to_bin(char * fromname, char res[][9]);
+void mycd(LINK head, FILE *fp, char * gostr);
+void prompt(FILE *);
+void mypwd(FILE *fp);
 
 int main(void)
 {
@@ -73,39 +86,132 @@ int main(void)
 
 	fseek(fp, 16+512+1024+79*512+128*8*(nowdir_inode-1), 0);
 	h = dir_to_list(fp);
+	now_h = h;
 
-	prompt(h, fp);
-	getchar();
-	mypwd(h, fp);
-	getchar();
-
-	mymkdir(h, fp);
-	//h = dir_to_list(fp);
+	mymkdir(now_h, fp);
+	mycd(now_h, fp, "test");
+	prompt(fp);
+	mypwd(fp);
+	//mypwd(now_h, fp);
 	
 
 
-	printf("%s\n", h -> next -> next -> name);
 
 	putchar('\n');
 	putchar('\n');
 	printf("ls\n");
-	print_list(h);
+	print_list(now_h);
 	printf("\nls -i\n");
-	print_list_i(h);
+	print_list_i(now_h);
 	printf("\nls -l\n");
-	print_list_l(h, fp);
+	print_list_l(now_h, fp);
 
 	link_free(h);
 	fclose(fp);
 	return 0;
 }
+void mycd(LINK head, FILE *fp, char * gostr)
+{
+	LINK tmp = head;
+	while(1)
+	{
+		if(strcmp(tmp -> name, gostr) == 0)
+		{
+			now_h = tmp -> sib;
+			nowdir_inode = tmp -> inode_num;
+			strcpy(now_name, tmp -> name);
+			return;
+		}
+		if(tmp -> next != NULL)
+			tmp = tmp -> next;
+		else {printf("mycd 실패\n"); return;}
+	}
+}
+
+void prompt(FILE *fp)
+{
+	if(nowdir_inode == 1)
+	{
+		printf("[ / ]$"); return;
+	}
+	char *pp[100]; int cnt = 1; pp[0] = now_name;
+	int mother_inode = now_h -> next -> inode_num;
+	fseek(fp, 16+512+1024+79*512+128*8*(mother_inode-1), 0);
+	LINK mother_list = dir_to_list(fp);
+	if(mother_inode != 1)
+	{
+		cnt++;
+		pp[1] = now_h -> next -> name;
+	}
+	else {printf("[ /%s ]$ ", now_name); return;}
+	for(; cnt <= 100; cnt++)
+	{
+		mother_inode = mother_list -> next -> inode_num;
+		if(mother_inode != 1)
+		{
+			pp[cnt] = mother_list -> next -> name;
+			cnt++;
+			fseek(fp, 16+512+1024+79*512+128*8*(mother_inode-1), 0);
+			mother_list = dir_to_list(fp);
+			
+		}
+		else {pp[cnt] = "/"; break;}
+	}
+	printf("[ /");
+	for(int i = cnt; cnt >= 0; cnt--)
+	{
+		printf("%s", pp[i]);
+		putchar('/');
+	}
+	printf(" ]$");
+}
+
+void mypwd(FILE *fp)
+{
+	if(nowdir_inode == 1)
+	{
+		printf("/\n"); return;
+	}
+	char *pp[100]; int cnt = 1; pp[0] = now_name;
+	int mother_inode = now_h -> next -> inode_num;
+	fseek(fp, 16+512+1024+79*512+128*8*(mother_inode-1), 0);
+	LINK mother_list = dir_to_list(fp);
+	if(mother_inode != 1)
+	{
+		cnt++;
+		pp[1] = now_h -> next -> name;
+	}
+	else {printf("/%s\n", now_name); return;}
+	for(; cnt <= 100; cnt++)
+	{
+		mother_inode = mother_list -> next -> inode_num;
+		if(mother_inode != 1)
+		{
+			pp[cnt] = mother_list -> next -> name;
+			cnt++;
+			fseek(fp, 16+512+1024+79*512+128*8*(mother_inode-1), 0);
+			mother_list = dir_to_list(fp);
+			
+		}
+		else {pp[cnt] = "/"; break;}
+	}
+	printf("/");
+	for(int i = cnt; cnt >= 0; cnt--)
+	{
+		printf("%s", pp[i]);
+		putchar('/');
+	}
+	printf("\n");
+}
+
+
+
+
 void mymkdir(LINK head, FILE *fp)
 {
 	int sb_inode_empty = f_sb_inode_empty(fp);
 	int sb_data_empty  = f_sb_data_empty(fp);
 	u_sb_inode(fp, sb_inode_empty);
-	printf("빈아이노드:%d", sb_inode_empty);
-	printf("빈아이노드:%d", sb_data_empty);
 	u_sb_data(fp, sb_data_empty);
 	write_to_inode_dir(fp, sb_inode_empty, sb_data_empty);
 	write_to_data_dir(fp, sb_inode_empty, sb_data_empty);
@@ -134,7 +240,9 @@ void write_to_inode_dir(FILE * fp, int sb_inode_empty, int sb_data_empty)
 void write_to_data_dir(FILE *fp, int sb_inode_empty, int sb_data_empty)
 {
 	char strInode[11] = {};
+	char strInode_now[11] = {};
 	binary(sb_inode_empty, strInode, 10);
+	binary(nowdir_inode, strInode_now, 10);
 	fseek(fp, 16+512+1024+79*512+128*8*(sb_data_empty-1), 0);
 	fprintf(fp, "00101110");	// .
 	fprintf(fp, "00000000");
@@ -145,7 +253,7 @@ void write_to_data_dir(FILE *fp, int sb_inode_empty, int sb_data_empty)
 	fprintf(fp, "00101110");	// ..
 	fprintf(fp, "00000000");
 	fprintf(fp, "00000000");
-	fprintf(fp, "%s", strInode); 	// 해당 아이노드번호
+	fprintf(fp, "%s", strInode_now); 	// 해당 아이노드번호
 }
 
 void write_name_to_dir(FILE * fp, LINK head, int sb_inode_empty, char *newdir_str)
@@ -176,7 +284,6 @@ void write_name_to_dir(FILE * fp, LINK head, int sb_inode_empty, char *newdir_st
 			j /= 2;
 		}
 		fprintf(fp, "%s", tmp_str);
-		printf("이름:%s/n", tmp_str);
 	}
 	char tmp_str[11] = {};
 	int j = 512;
@@ -208,7 +315,6 @@ void name_to_bin(char * fromname, char res[][9])
 			fromname[i] %= k;
 			k /= 2;
 		}
-		printf("gg\n%s\n", res[i]);
 	}
 }
 
@@ -272,104 +378,21 @@ LINK dir_to_list_sib(FILE *fp, int sb_inode_empty)
 	
 	
 
-void mypwd(LINK head, FILE * fp)
-{
-	int mother_inode;
-	int temp = nowdir_inode;
-	int pstrlen;
-	mother_inode = head -> next -> inode_num;
-	while(1)
-	{
-		if(mother_inode != 1)
-		{
-			root = 1;
-			fseek(fp, 16+512+1024+79*512+128*8*(mother_inode-1), 0);
-			LINK h2 = dir_to_list(fp);
-			strcat(pstr, find_my_name(h2, temp));
-			strcat(pstr," ");
-			temp = mother_inode;
-			mother_inode = h2 -> next -> inode_num;
-			free(h2);
-		}
-		else
-			break;
-	}
-if(root == 1)
-{
-	pstrlen = strlen(pstr);
-	for(int i = 0; pstrlen - 1; i ++)
-	{
-		if(pstr[i] == ' ')
-			pstr[i] = 0;
-	}
-}
-	
-	printf("/");
-	if(root == 1)
-{
-	for(int i = pstrlen - 1 ; i >= 0; i--)
-	{
-		if(pstr[i] == '/')
-			break;
-		else if(pstr[i] == '\0')
-		{
-			printf("%s", pstr[i+1]);
-			printf("/");
-		}	
-	}
-}
-	printf("\n");
-}
 
-void prompt(LINK head, FILE * fp)
+/*int find_my_inode(LINK head, char * my_name)
 {
-	int mother_inode;
-	int temp = nowdir_inode;
-	int pstrlen;
-	mother_inode = head -> next -> inode_num;
-	while(1)
+	int my_inode = NULL;
+	if(strcmp(head -> name, my_name) == '0')
+		return head -> inode_num;
+	else
 	{
-		if(mother_inode != 1)
-		{
-			root = 1;
-			fseek(fp, 16+512+1024+79*512+128*8*(mother_inode-1), 0);
-			LINK h2 = dir_to_list(fp);
-			strcat(pstr, find_my_name(h2, temp));
-			strcat(pstr," ");
-			temp = mother_inode;
-			mother_inode = h2 -> next -> inode_num;
-			free(h2);
-		}
+		my_inode = find_my_inode(head -> next, my_name);
+		if(my_inode != NULL)
+			return my_inode;
 		else
-			break;
+			return NULL;
 	}
-if(root == 1)
-{
-	pstrlen = strlen(pstr);
-	for(int i = 0; pstrlen - 1; i ++)
-	{
-		if(pstr[i] == ' ')
-			pstr[i] = 0;
-	}
-}
-	
-	printf("[ /");
-	if(root == 1)
-{
-	for(int i = pstrlen - 1 ; i >= 0; i--)
-	{
-		if(pstr[i] == '/')
-			break;
-		else if(pstr[i] == '\0')
-		{
-			printf("%s", pstr[i+1]);
-			printf("/");
-		}	
-	}
-}
-	printf(" ]$ ");
-}
-
+}*/
 char * find_my_name(LINK head, int myinode)
 {
 	char * ans;

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#define inode_array ia
 
 typedef struct inode
 {
@@ -26,10 +27,13 @@ typedef ELEMENT *LINK;
 int nowdir_inode = 1; // 루트 디렉터리의 경우!!!!!!!!!!!
 LINK h	   = NULL;
 LINK now_h = NULL;
+LINK consth = NULL;
+LINK inode_array[512] = {};
 char now_name[5] = "/";
 char fname[5];
 char pstr[1000] = {};
 int SWITCH = 0;
+int iacnt = 0;
 
 LINK dir_to_list(FILE *); // 트리구조를 링크드리스트롤 구현
 void print_time(int);
@@ -58,7 +62,7 @@ void mymkdir(LINK head, FILE *fp, char *);
 void write_to_inode_dir(FILE *fp, int sb_inode_empty, int sb_data_empty);
 void write_to_data_dir(FILE *fp, int sb_inode_empty, int sb_data_empty);
 void link_newdir_to_list(FILE * fp, LINK head, int sb_inode_empty, char newdir_str[]);
-LINK dir_to_list_sib(FILE *fp, int sb_inode_empty);
+LINK dir_to_list_sib(FILE *fp, int sb_inode_empty, LINK mother_link);
 void binary(int time, char*str, int num);
 void write_name_to_dir(FILE * fp, LINK head, int sb_inode_empty, char *newdir_str);
 void mycd(LINK head, FILE *fp, char * gostr);
@@ -72,7 +76,7 @@ int main(void)
 	FILE *fp = fopen("myfs", "r+");
 	fseek(fp, 16+512+1024+79*512+128*8*(nowdir_inode-1), 0);
 	h = dir_to_list(fp);
-	now_h = h;
+	now_h = ia[0];
 
 	while(1){
 		init(fp);
@@ -102,11 +106,11 @@ void init(FILE*fp)
 
 		if(strcmp("myls",ptr[0])==0){
 			if(strcmp("-l",ptr[1])==0)
-				print_list_l(now_h, fp);
+				print_list_l(ia[nowdir_inode-1], fp);
 			else if(strcmp("-i",ptr[1])==0)
-				print_list_i(now_h);
+				print_list_i(ia[nowdir_inode-1]);
 			else 
-				print_list(now_h);
+				print_list(ia[nowdir_inode-1]);
 		}
 		else if(strcmp("mycat",ptr[0])==0){
 			if(strcmp(">",ptr[1])==0){
@@ -166,36 +170,77 @@ void init(FILE*fp)
 }
 void mycd(LINK head, FILE *fp, char * gostr)
 {
-	LINK tmp = head;
+	int tmp = 0;
+	LINK tmpLINK = NULL;
+	if(strcmp(gostr, ".") == 0)
+			return;
+	if(strcmp(gostr, "..") == 0)
+	{
+		if(ia[nowdir_inode-1] -> next -> inode_num == 1)
+		{
+			strcpy(now_name, "/");
+			nowdir_inode = 1;
+			return ;
+		}
+		nowdir_inode = ia[nowdir_inode-1] -> next -> inode_num;
+		tmp = ia[nowdir_inode-1] -> next -> inode_num;
+		fseek(fp, 16+512+1024+79*512+128*8*(tmp-1), 0);
+		tmpLINK = (ELEMENT*)malloc(sizeof(ELEMENT));
+		tmpLINK = dir_to_list(fp);
+		tmpLINK = tmpLINK -> next -> next;
+		while(1)
+		{
+			if(tmpLINK -> inode_num == nowdir_inode)
+			{
+				strcpy(now_name, tmpLINK -> name);
+				break;
+				link_free(tmpLINK);
+			}
+			tmpLINK = tmpLINK -> next;
+		}
+	}
+		if(ia[nowdir_inode-1] -> next -> next == NULL)
+		{
+			printf("그런 디렉터리는 없습니다.\n");
+			return ;
+		}
+	fseek(fp, 16+512+1024+79*512+128*8*(nowdir_inode-1), 0);
+	tmpLINK = (ELEMENT*)malloc(sizeof(ELEMENT));
+	tmpLINK = dir_to_list(fp);
+	tmpLINK = tmpLINK -> next -> next;
 	while(1)
 	{
-		if(strcmp(tmp -> name, gostr) == 0)
+		if(strcmp(gostr, tmpLINK -> name) == 0)
 		{
-			now_h = tmp -> sib;
-			nowdir_inode = tmp -> inode_num;
-			strcpy(now_name, tmp -> name);
-			return;
+			nowdir_inode = tmpLINK -> inode_num;
+			strcpy(now_name, tmpLINK -> name);
+			link_free(tmpLINK);
+			return ;
 		}
-		if(tmp -> next != NULL)
-			tmp = tmp -> next;
-		else {printf("mycd 실패\n"); return;}
+		else if(tmpLINK -> next = NULL)
+		{
+			printf("그런 디렉터리는 없습니다.\n");
+			return ;
+		}
+		tmpLINK = tmpLINK -> next;
 	}
 }
+
 
 void myprompt(FILE *fp)
 {
 	if(nowdir_inode == 1)
 	{
-		printf("[ / ]$"); return;
+		printf("[ / ]$ "); return;
 	}
 	char *pp[100]; int cnt = 1; pp[0] = now_name;
-	int mother_inode = now_h -> next -> inode_num;
+	int mother_inode = ia[nowdir_inode-1] -> next -> inode_num;
 	fseek(fp, 16+512+1024+79*512+128*8*(mother_inode-1), 0);
 	LINK mother_list = dir_to_list(fp);
 	if(mother_inode != 1)
 	{
 		cnt++;
-		pp[1] = now_h -> next -> name;
+		pp[1] = ia[nowdir_inode-1] -> next -> name;
 	}
 	else {printf("[ /%s ]$ ", now_name); return;}
 	for(; cnt <= 100; cnt++)
@@ -217,7 +262,7 @@ void myprompt(FILE *fp)
 		printf("%s", pp[i]);
 		putchar('/');
 	}
-	printf(" ]$");
+	printf(" ]$ ");
 }
 
 void mypwd(FILE *fp)
@@ -227,13 +272,13 @@ void mypwd(FILE *fp)
 		printf("/\n"); return;
 	}
 	char *pp[100]; int cnt = 1; pp[0] = now_name;
-	int mother_inode = now_h -> next -> inode_num;
+	int mother_inode = ia[nowdir_inode-1] -> next -> inode_num;
 	fseek(fp, 16+512+1024+79*512+128*8*(mother_inode-1), 0);
 	LINK mother_list = dir_to_list(fp);
 	if(mother_inode != 1)
 	{
 		cnt++;
-		pp[1] = now_h -> next -> name;
+		pp[1] = ia[nowdir_inode-1] -> next -> name;
 	}
 	else {printf("/%s\n", now_name); return;}
 	for(; cnt <= 100; cnt++)
@@ -272,8 +317,8 @@ void mymkdir(LINK head, FILE *fp, char *ptr)
 	write_to_data_dir(fp, sb_inode_empty, sb_data_empty);
 	for(int i = 0; i < 4; i++)
 		newdir_str[i] = ptr[i];
-	write_name_to_dir(fp, head, sb_inode_empty, newdir_str);
-	link_newdir_to_list(fp, head, sb_inode_empty, newdir_str);
+	write_name_to_dir(fp, ia[nowdir_inode-1], sb_inode_empty, newdir_str);
+	link_newdir_to_list(fp, ia[nowdir_inode-1], sb_inode_empty, newdir_str);
 	SWITCH = 0;
 }
 
@@ -316,7 +361,7 @@ void write_name_to_dir(FILE * fp, LINK head, int sb_inode_empty, char *newdir_st
 {
 	char newdir_str2[5];
 	strcpy(newdir_str2, newdir_str);
-	LINK tmp = head -> next;
+	LINK tmp = ia[nowdir_inode-1] -> next;
 	int inode_cnt = 2;
 	while(1)
 	{
@@ -350,6 +395,7 @@ void write_name_to_dir(FILE * fp, LINK head, int sb_inode_empty, char *newdir_st
 		j /= 2;
 	}
 	fprintf(fp, "%s", tmp_str);
+	fflush(fp);
 }
 
 
@@ -360,52 +406,34 @@ void link_newdir_to_list(FILE *fp, LINK head, int sb_inode_empty, char newdir_st
 		return;
 	else
 	{
-		if(head -> next == NULL)
+		if(head-> next == NULL)
 		{
 			LINK new_dir = (ELEMENT*)malloc(sizeof(ELEMENT));
-			head -> next = new_dir;
-			strcpy(head -> next -> name, newdir_str);
-			head -> next -> inode_num = sb_inode_empty;
-			head -> next -> next = NULL;
-			head -> next -> sib = dir_to_list_sib(fp, sb_inode_empty);
+			head-> next = new_dir;
+			strcpy(head-> next -> name, newdir_str);
+			head-> next -> inode_num = sb_inode_empty;
+			head-> next -> next = NULL;
+			head-> next -> sib = dir_to_list_sib(fp, sb_inode_empty, head);
 			SWITCH = 1;
 		}
 		else if(SWITCH == 0)
-			link_newdir_to_list(fp, head -> next, sb_inode_empty, newdir_str);
+			link_newdir_to_list(fp, head-> next, sb_inode_empty, newdir_str);
 	}
 }
 
-LINK dir_to_list_sib(FILE *fp, int sb_inode_empty)
+LINK dir_to_list_sib(FILE *fp, int sb_inode_empty, LINK mother_link)
 {
-	fseek(fp, 16+512+1024+79*512+128*8*(sb_inode_empty-1), 0);
-	char ftype;
-	LINK head = NULL;
-	bin_to_str(fp);
-	if(fname[0] == '\0')
-	{
-		return NULL;
-	}
-	else
-	{
-		head = (ELEMENT*)malloc(sizeof(ELEMENT));
-		strcpy(head -> name, fname);
-		for(int i = 0; i < 5; i++)
-			fname[i] = 0;
-		head -> inode_num = binary_changer(fp, 10);
-		head -> next = dir_to_list(fp);
-		if(!strcmp(head -> name, ".") && !strcmp(head -> name, ".."))
-		{
-			fseek(fp, 1552 + 79 * (head -> inode_num-1), 0);
-			if((ftype = getc(fp)) == '0')
-			{
-				fseek(fp, 16+512+1024+79*512+128*8*(head -> inode_num-1), 0);
-				head -> sib = dir_to_list(fp);
-			}
-			else head -> sib = NULL;
-		}	
-
-		return head;
-	}
+	LINK head = (ELEMENT*)malloc(sizeof(ELEMENT));
+	strcpy(head -> name, ".");
+	head -> inode_num = sb_inode_empty;
+	head -> next = (ELEMENT*)malloc(sizeof(ELEMENT));
+	head -> sib = NULL;
+	strcpy(head -> next -> name, "..");
+	head -> next -> inode_num = nowdir_inode;
+	head -> next -> next = NULL;
+	head -> next -> sib = ia[nowdir_inode-1];
+	ia[sb_inode_empty-1] = head;
+	return head;
 }
 
 void bin_to_str(FILE *fp)
@@ -420,7 +448,7 @@ void bin_to_str(FILE *fp)
 }
 
 LINK dir_to_list(FILE *fp)
-{
+{                                                                                                                                                                         
 	char ftype;
 	LINK head = NULL;
 	bin_to_str(fp);
@@ -432,20 +460,26 @@ LINK dir_to_list(FILE *fp)
 	{
 		head = (ELEMENT*)malloc(sizeof(ELEMENT));
 		strcpy(head -> name, fname);
+		if(strcmp(head -> name, ".") == 0)
+		{ia[iacnt] = head; iacnt++;}
 		for(int i = 0; i < 5; i++)
 			fname[i] = 0;
 		head -> inode_num = binary_changer(fp, 10);
 		head -> next = dir_to_list(fp);
-		if(!strcmp(head -> name, ".") && !strcmp(head -> name, ".."))
+		if(strcmp(head -> name, ".") != 0)
 		{
 			fseek(fp, 1552 + 79 * (head -> inode_num-1), 0);
 			if((ftype = getc(fp)) == '0')
 			{
+				if(strcmp(head -> name, "..") != 0)
+				{
 				fseek(fp, 16+512+1024+79*512+128*8*(head -> inode_num-1), 0);
 				head -> sib = dir_to_list(fp);
+				}
 			}
 			else head -> sib = NULL;
 		}	
+		else head -> sib = NULL;
 
 		return head;
 	}

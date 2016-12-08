@@ -233,34 +233,46 @@ void myprompt(FILE *fp)
 	{
 		printf("[ / ]$ "); return;
 	}
-	char *pp[100]; int cnt = 1; pp[0] = now_name;
-	int mother_inode = ia[nowdir_inode-1] -> next -> inode_num;
-	fseek(fp, 16+512+1024+79*512+128*8*(mother_inode-1), 0);
+	char pp[512][5] = {}; int cnt = 0; strcpy(pp[0], now_name);
+	int tmpi = ia[nowdir_inode-1] -> next -> inode_num;
+	if(tmpi == 1)
+	{printf("[ /%s ]$ ", now_name);return;}
+	fseek(fp, 16+512+1024+79*512+128*8*(tmpi-1), 0);
 	LINK mother_list = dir_to_list(fp);
-	if(mother_inode != 1)
+	mother_list = mother_list -> next;
+	int mother_inode = mother_list -> inode_num;
+	link_free(mother_list);
+	for(cnt = 1; cnt <= 100; cnt++)
 	{
-		cnt++;
-		pp[1] = ia[nowdir_inode-1] -> next -> name;
-	}
-	else {printf("[ /%s ]$ ", now_name); return;}
-	for(; cnt <= 100; cnt++)
-	{
-		mother_inode = mother_list -> next -> inode_num;
-		if(mother_inode != 1)
+		if(tmpi == 1)
+		{break;}
+		else
 		{
-			pp[cnt] = mother_list -> next -> name;
-			cnt++;
 			fseek(fp, 16+512+1024+79*512+128*8*(mother_inode-1), 0);
-			mother_list = dir_to_list(fp);
-			
+			LINK mother_list = dir_to_list(fp);
+			mother_list = mother_list -> next;
+			int gmother_inode = mother_list -> inode_num;
+			mother_list = mother_list -> next;
+			while(1)
+			{
+				if(mother_list -> inode_num == tmpi)
+				{
+					strcpy(pp[cnt], mother_list -> name);
+					break;
+				}
+				mother_list = mother_list -> next;
+			}
+			tmpi = mother_inode;
+			mother_inode = gmother_inode;
+			link_free(mother_list);
 		}
-		else {pp[cnt] = "/"; break;}
 	}
-	printf("[ /");
-	for(int i = cnt; cnt >= 0; cnt--)
+
+	printf("[ ");
+	for(int i = cnt-1; i >= 0; i--)
 	{
-		printf("%s", pp[i]);
 		putchar('/');
+		printf("%s", pp[i]);
 	}
 	printf(" ]$ ");
 }
@@ -271,39 +283,47 @@ void mypwd(FILE *fp)
 	{
 		printf("/\n"); return;
 	}
-	char *pp[100]; int cnt = 1; pp[0] = now_name;
-	int mother_inode = ia[nowdir_inode-1] -> next -> inode_num;
-	fseek(fp, 16+512+1024+79*512+128*8*(mother_inode-1), 0);
+	char pp[512][5]; int cnt = 0; strcpy(pp[0], now_name);
+	int tmpi = ia[nowdir_inode-1] -> next -> inode_num;
+	if(tmpi == 1)
+	{printf("/%s\n", now_name);return;}
+	fseek(fp, 16+512+1024+79*512+128*8*(tmpi-1), 0);
 	LINK mother_list = dir_to_list(fp);
-	if(mother_inode != 1)
+	mother_list = mother_list -> next;
+	int mother_inode = mother_list -> inode_num;
+	link_free(mother_list);
+	for(cnt = 1; cnt <= 100; cnt++)
 	{
-		cnt++;
-		pp[1] = ia[nowdir_inode-1] -> next -> name;
-	}
-	else {printf("/%s\n", now_name); return;}
-	for(; cnt <= 100; cnt++)
-	{
-		mother_inode = mother_list -> next -> inode_num;
-		if(mother_inode != 1)
+		if(tmpi == 1)
+		{break;}
+		else
 		{
-			pp[cnt] = mother_list -> next -> name;
-			cnt++;
 			fseek(fp, 16+512+1024+79*512+128*8*(mother_inode-1), 0);
-			mother_list = dir_to_list(fp);
-			
+			LINK mother_list = dir_to_list(fp);
+			mother_list = mother_list -> next;
+			int gmother_inode = mother_list -> inode_num;
+			mother_list = mother_list -> next;
+			while(1)
+			{
+				if(mother_list -> inode_num == tmpi)
+				{
+					strcpy(pp[cnt], mother_list -> name);
+					break;
+				}
+				mother_list = mother_list -> next;
+			}
+			tmpi = mother_inode;
+			mother_inode = gmother_inode;
+			link_free(mother_list);
 		}
-		else {pp[cnt] = "/"; break;}
 	}
-	printf("/");
-	for(int i = cnt; cnt >= 0; cnt--)
+	for(int i = cnt-1; i >= 0; i--)
 	{
-		printf("%s", pp[i]);
 		putchar('/');
+		printf("%s", pp[i]);
 	}
 	printf("\n");
 }
-
-
 
 
 void mymkdir(LINK head, FILE *fp, char *ptr)
@@ -431,7 +451,8 @@ LINK dir_to_list_sib(FILE *fp, int sb_inode_empty, LINK mother_link)
 	strcpy(head -> next -> name, "..");
 	head -> next -> inode_num = nowdir_inode;
 	head -> next -> next = NULL;
-	head -> next -> sib = ia[nowdir_inode-1];
+	head -> next -> sib = NULL;
+	//head -> next -> sib = ia[nowdir_inode-1];
 	ia[sb_inode_empty-1] = head;
 	return head;
 }

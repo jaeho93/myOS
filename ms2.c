@@ -31,6 +31,8 @@ typedef struct linked_list_data
 }LINK_DB;
 typedef LINK_DB* LINKDB;
 
+int num1=0,num2=0;
+int show_cnt=0;//myshowfile하기 위해 mycat()처럼 file의 전체를 펴놓고, num1 과 num2 사이의 카운트가 되면 출력하도록 변경
 int SERCH = 1;
 int nowdir_inode = 1; // 루트 디렉터리의 경우!!!!!!!!!!!
 LINK h	   = NULL;
@@ -98,7 +100,14 @@ void mycpfrom(FILE *fp, char * str1, char * str2);
 void push_DB(FILE *fp, LINKDB database, int datablock);
 LINKDB write_to_LINK_DB(FILE *out);
 void write_to_inode_ind(FILE *fp, int inode, int size, int dir, int ind, int dou);
+LINKDB db_link(LINKDB * ary, LINKDB head, int *cnt);
+LINKDB find_db(LINKDB head, int size, int *cnt);
 
+void direct_block_reader(FILE *fp,int direct_num,int,int);
+void single_block_reader(FILE *fp,int single_num);
+void Double_block_reader(FILE *fp,int Double_num);
+void mycat(FILE *fp,LINK head,char*file_name);
+void myshowfile(FILE *fp,LINK head,int num1,int num2,char *tmp_name);
 
 int main(void)
 {
@@ -152,10 +161,14 @@ void init(FILE*fp)
 				//ptr[2]에 파일명 집어 넣고 함수의 인자로 ptr[2]집어 넣으면 됩니다
 			}
 			else
-				printf("i'm mycat ptr[1]\n");
+			mycat(fp,ia[nowdir_inode-1],ptr[1]);
 		}
 		else if(strcmp("myshowfile",ptr[0])==0){
-			printf("i'm myshowfile ptr[1] ptr[2] ptr[3]\n");
+			{
+		num1=atoi(ptr[1]);
+		num2=atoi(ptr[2]);
+		myshowfile(fp,ia[nowdir_inode-1],num1,num2,ptr[3]);
+			}
 		}
 		else if(strcmp("mypwd",ptr[0])==0){
 			mypwd(fp); putchar('\n');
@@ -208,6 +221,105 @@ void init(FILE*fp)
 		}
 		else
 			printf("wrong command\n");
+}
+void myshowfile(FILE *fp,LINK head,int num1,int num2,char *tmp_name)
+{
+	int direct_db=0,single_db=0,Double_db=0;
+	int c;
+		LINK k=head;
+	inode *ip=(inode*)malloc(sizeof(inode));
+	if(strcmp(k->name,tmp_name)==0){
+		get_inode(fp,ip,16+512+1024+79*(k->inode_num-1));
+		direct_db=ip->direct;
+		single_db=ip->single;
+		Double_db=ip->Double;
+
+		if(Double_db==0 && single_db==0)//direct만 쓴경우
+			direct_block_reader(fp,direct_db,num1,num2);
+		else if(Double_db==0){//single까지 쓴경우
+			direct_block_reader(fp,direct_db,num1,num2);
+			single_block_reader(fp,single_db);
+		}
+		else{//double까지 다쓴경우
+			direct_block_reader(fp,direct_db,num1,num2);
+			single_block_reader(fp,single_db);
+			Double_block_reader(fp,Double_db);
+		}
+		show_cnt=0;
+		num1=0;
+		num2=0;
+	}
+	else
+		myshowfile(fp,head->next,num1,num2,tmp_name);
+}
+void direct_block_reader(FILE *fp,int direct_num,int num1,int num2)
+	//single내 direct중 128이 안되는 애를 접근해야하는 경우 rest에 그 애를 넣는다
+{
+	int letter;
+	int basic=128;
+
+	fseek(fp,16+512+1024+79*512+128*8*(direct_num-1),0);
+	for(int i=0;i<basic;i++){
+		letter=binary_changer(fp,8);
+		show_cnt++;
+		if(num1==0 && num2==0)
+			printf("%c",letter);
+		else if(num1<=show_cnt && show_cnt <=num2)
+			printf("%c",letter);
+	}
+}
+//single indirect의 주소로 접근해서 주소들을 10진수로 바꾼상태로 저장 하여 해당 >주소를 direct_block_reader로 보내기
+void single_block_reader(FILE *fp,int single_num)
+	//cnt는 single내에서 쓰이는 direct의 갯수입니다
+{
+	int basic=102;
+	int direct[102];
+	fseek(fp,16+512+1024+79*512+128*8*(single_num-1),0);
+	for(int i=0;i<basic;i++){
+		direct[i]=binary_changer(fp,10);
+	}
+	for(int j=0;j<basic;j++)
+		direct_block_reader(fp,direct[j],num1,num2);
+}
+void Double_block_reader(FILE *fp,int Double_num)
+	//single_block_reader랑 같은 이유
+{
+	int basic=102;
+	int single[102];
+	fseek(fp,16+512+1024+79*512+128*8*(Double_num-1),0);
+	for(int i=0;i<basic;i++){
+		single[i]=binary_changer(fp,10);
+	}
+	for(int j=0;j<basic;j++)
+		single_block_reader(fp,single[j]);
+}
+void mycat(FILE *fp,LINK head,char*file_name)
+{
+	int direct_db=0,single_db=0,Double_db=0;
+
+	inode *ip=(inode*)malloc(sizeof(inode));
+	LINK k=head;
+	if(strcmp(k->name,file_name)==0){
+		get_inode(fp,ip,16+512+1024+79*(k->inode_num-1));//inode의 시작위치까지만보내주면 아이노드 정보 10진화 해서 ip에 다 리턴해줌
+			direct_db=ip->direct;//몇번째 db에 있는지 10진수 형태로주소가지고 있음
+		single_db=ip->single;
+		Double_db=ip->Double;
+
+		if(Double_db==0 && single_db==0)//direct만 쓴경우
+			direct_block_reader(fp,direct_db,0,0);
+		else if(Double_db==0){//single까지 쓴경우
+			direct_block_reader(fp,direct_db,0,0);
+			single_block_reader(fp,single_db);
+		}
+		else{//double까지 다쓴경우
+			direct_block_reader(fp,direct_db,0,0);
+			single_block_reader(fp,single_db);
+			Double_block_reader(fp,Double_db);
+		}
+	}
+	else
+		mycat(fp,head->next,file_name);
+
 }
 
 LINK find_file(LINK head, char *str, int *inode)
@@ -358,7 +470,141 @@ void mycpfrom(FILE *fp, char * str1, char * str2)
 		push_DB(fp, database, sb_data_empty);
 		fflush(fp);
 	}	
+	else if((data_block > 1) && (data_block < 104))
+	{
+		int sb_inode_empty = f_sb_inode_empty(fp);
+		u_sb_inode(fp, sb_inode_empty);
+		int sb_data_empty = f_sb_data_empty(fp);
+		u_sb_data(fp, sb_data_empty);
+		write_name_to_dir(fp, ia[nowdir_inode-1], sb_inode_empty, str2);
+		link_newfile(ia[nowdir_inode-1], sb_inode_empty, str2);
+		fseek(fp, 16+512+1024+79*512+(128*8)*(sb_data_empty-1), 0);
+		push_DB(fp, database, sb_data_empty);
+		int inode_array[102] = {}, sb_data, sb_indirect_empty;
+		LINKDB LINKDB_array[102]; int db_cnt = 0;
+		db_link(LINKDB_array, database -> next, &db_cnt);
+		sb_indirect_empty = f_sb_data_empty(fp);
+		u_sb_data(fp, sb_indirect_empty);
+		for(int i = 0; db_cnt; i++)
+		{
+			sb_data = f_sb_data_empty(fp);
+			u_sb_data(fp, sb_data);
+			inode_array[i] = sb_data;
+			fseek(fp, 16+512+1024+79*512+(128*8)*(sb_data-1), 0);
+			push_DB(fp, LINKDB_array[i], sb_data);
+		}
+		fseek(fp, 16+512+1024+79+512+(128*8)*(sb_indirect_empty-1), 0);
+		for(int i = 0; i < db_cnt; i++)
+		{
+			char str[11] = {};
+			binary(inode_array[i], str, 10);
+			fprintf(fp, "%s", str);
+		}
+		write_to_inode_ind(fp, sb_inode_empty, total_byte, sb_data_empty, sb_indirect_empty, 0);
+		fflush(fp);
+	}
+	else
+	{
+		int sb_inode_empty = f_sb_inode_empty(fp);
+		u_sb_inode(fp, sb_inode_empty);
+		int sb_data_empty = f_sb_data_empty(fp);
+		u_sb_data(fp, sb_data_empty);
+		write_name_to_dir(fp, ia[nowdir_inode-1], sb_inode_empty, str2);
+		link_newfile(ia[nowdir_inode-1], sb_inode_empty, str2);
+		fseek(fp, 16+512+1024+79*512+(128*8)*(sb_data_empty-1), 0);
+		push_DB(fp, database, sb_data_empty);
+		int inode_array[102] = {}, sb_data, sb_indirect_empty;
+		LINKDB LINKDB_array[102] = {}; int db_cnt = 0;
+		db_link(LINKDB_array, database -> next, &db_cnt);
+		sb_indirect_empty = f_sb_data_empty(fp);
+		u_sb_data(fp, sb_indirect_empty);
+		for(int i = 0; 102; i++)
+		{
+			sb_data = f_sb_data_empty(fp);
+			u_sb_data(fp, sb_data);
+			inode_array[i] = sb_data;
+			fseek(fp, 16+512+1024+79*512+(128*8)*(sb_data-1), 0);
+			push_DB(fp, LINKDB_array[i], sb_data);
+		}
+		fseek(fp, 16+512+1024+79*512+(128*8)*(sb_indirect_empty-1), 0);
+		for(int i = 0; i < 102; i++)
+		{
+			char str[11] = {};
+			binary(inode_array[i], str, 10);
+			fprintf(fp, "%s", str);
+		}
+		int sb_data_double = f_sb_data_empty(fp);
+		u_sb_data(fp, sb_data_double);
+		write_to_inode_ind(fp, sb_inode_empty, total_byte, sb_data_empty, sb_indirect_empty, sb_data_double);
+		int double_array[102][102] = {}; int ind_array[102]; LINKDB LINKDBarray2[102][102] = {}; int need_ind = (total_byte-103*128)/128/102;
+		int cnt2 = 0; LINKDB start = find_db(database, 102, &cnt2);
+		if((total_byte-103*128)%(128*102) != 0)
+			need_ind++;
+		int cnt3;
+		for(int j = 0; j < 102; j++)
+		{
+				cnt3 = 0;
+				start = db_link(LINKDBarray2[j], start, &cnt3);
+		}
+		int now = 0;
+		for(int i = 0; i < need_ind; i++)
+		{
+			for(int j = 0; j < 102; j++)
+				if(now < data_block)
+				{
+					now++;
+					sb_data = f_sb_data_empty(fp);
+					u_sb_data(fp, sb_data);
+					double_array[i][j] = sb_data;
+					fseek(fp, 16+512+1024+79*512+(128*8)*(sb_data-1), 0);
+					push_DB(fp, LINKDBarray2[i][j], sb_data);
+				}
+				else break;
+		}
+		for(int i = 0; i < need_ind; i++)
+		{
+			int sb_ind = f_sb_data_empty(fp);
+			ind_array[i] = sb_ind;
+			u_sb_data(fp, sb_ind);
+			fseek(fp, 16+512+1024+79*512+(128*8)*(sb_ind-1), 0);
+			for(int j = 0; j < 102; j++)
+			{
+				char str[11] = {};
+				binary(double_array[i][j], str, 10);
+				fprintf(fp, "%s", str);
+			}
+		}
+		fseek(fp, 16+512+1024+79*512+(128*8)*(sb_data_double-1), 0);
+		for(int i = 0; i < need_ind; i++)
+		{
+			char str[11] = {};
+			binary(ind_array[i], str, 10);
+			fprintf(fp, "%s", str);
+		}
+	}
 
+}
+LINKDB find_db(LINKDB head, int size, int *cnt)
+{
+	if((*cnt)++ < size)
+		find_db(head -> next, size, cnt);
+	else return head;
+}
+
+
+
+
+LINKDB db_link(LINKDB * ary, LINKDB head, int *cnt)
+{
+	ary[(*cnt)++] = head;
+	if(*cnt < 102)
+	{
+		if(head -> next != NULL)
+			db_link(ary, head -> next, cnt);
+		else
+			return NULL;
+	}
+	else return head -> next;
 }
 void push_DB(FILE *fp, LINKDB database, int datablock)
 {

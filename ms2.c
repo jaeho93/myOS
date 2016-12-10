@@ -74,6 +74,10 @@ LINK find_next(LINK head, int *cnt);
 LINK find_name(LINK head, int inode);
 LINK find_inode(LINK head, char * str);
 LINK ia_link(LINK head);
+LINK rmtree(LINK head, int inode, int *cnt);
+LINK find_dir(LINK head, char *str, int *inode, LINK tmp_next);
+void rm_data(FILE *fp, int cnt);
+void myrmdir(FILE *fp, char *ptr);
 
 
 int main(void)
@@ -150,7 +154,8 @@ void init(FILE*fp)
 			ia_link(h);
 		}
 		else if(strcmp("myrmdir",ptr[0])==0){
-			printf("i'm myrmdir ptr[1]\n");
+			myrmdir(fp, ptr[1]);
+			ia_link(h);
 		}
 		else if(strcmp("mymv",ptr[0])==0){
 			printf("i'm mymv ptr[1] ptr[2]\n");
@@ -176,6 +181,7 @@ void init(FILE*fp)
 		else
 			printf("wrong command\n");
 }
+
 LINK find_name(LINK head, int inode)
 {
 	if(head -> inode_num == inode)
@@ -313,7 +319,86 @@ void mypwd(FILE *fp)
 	}
 	printf("\n");
 }
+LINK find_dir(LINK head, char *str, int *inode, LINK tmp_next)
+{
+	if(strcmp(head -> name, str) == 0)
+	{
+		if(head -> sib != NULL)
+		{
+			*inode = head -> inode_num;
+			if(head -> next != NULL)
+			{
+				tmp_next = head -> next;
+			}
+			return head -> sib;
+		}
+		else return NULL;
+	}
+	else if(head -> next == NULL)
+		return NULL;
+	else
+		return find_dir(head -> next, str, inode, tmp_next);
+}
 
+LINK rmtree(LINK head, int inode, int *cnt)
+{
+	printf("nowdir:%d\n", nowdir_inode);
+	printf("rminode:%d\n", inode);
+	printf("cnt:%d\n", *cnt);
+	printf("name:%s\n", head -> name);
+
+	if(head -> next -> inode_num == inode)
+	{
+		head -> next -> sib = NULL;
+		if(head -> next -> next != NULL)
+		{
+			LINK tmp = head -> next -> next;
+			LINK tmp2 = head -> next;
+			head -> next -> next = NULL;
+			head -> next = tmp;
+			free(tmp2);
+		}
+		else head -> next = NULL;
+		return NULL;
+	}
+	else {(*cnt)++; return rmtree(head -> next, inode, cnt);}
+}
+void rm_data(FILE *fp, int cnt)
+{	int size = 128*8-(8*4+10)*cnt + 1;
+	printf("사이즈:%d\n", size);
+	printf("cnt:%d\n", cnt);
+	char * str = (char *)malloc(size);
+	str[size-1] = '\0';
+	fseek(fp, 16+512+1024+79*512+128*8*(nowdir_inode-1)+(8*4+10)*(cnt), 0);
+	for(int i = 0; i < size-1; i++)
+		str[i] = getc(fp);
+	fseek(fp, 16+512+1024+79*512+128*8*(nowdir_inode-1)+(8*4+10)*(cnt-1), 0);
+	fprintf(fp, "%s", str);
+	for(int i = 0; i < 128*8-((8*4+10)*(cnt-1)+size-1); i++)
+		fprintf(fp, "0");
+	fflush(fp);
+}
+
+
+
+void myrmdir(FILE *fp, char *ptr)
+{
+	int rminode;
+	int cnt = 2;
+	LINK tmp_next;
+	LINK rmdir = find_dir(ia[nowdir_inode-1], ptr, &rminode, tmp_next);
+	if((rmdir == NULL) || (rmdir -> next -> next != NULL))
+	{
+		printf("디렉터리를 지울 수 없습니다.\n");
+		return ;
+	}
+	rmtree(ia[nowdir_inode-1], rminode, &cnt);
+	r_sb_inode(fp, rminode);
+	r_sb_data(fp, rminode);
+	rm_data(fp, cnt);
+	ia[rminode-1] = NULL;
+	printf("check");
+}
 
 void mymkdir(LINK head, FILE *fp, char *ptr)
 {

@@ -103,11 +103,16 @@ void write_to_inode_ind(FILE *fp, int inode, int size, int dir, int ind, int dou
 LINKDB db_link(LINKDB * ary, LINKDB head, int *cnt);
 LINKDB find_db(LINKDB head, int size, int *cnt);
 
-void direct_block_reader(FILE *fp,int direct_num,int,int);
+void direct_block_reader(FILE *fp,int direct_num);
 void single_block_reader(FILE *fp,int single_num);
 void Double_block_reader(FILE *fp,int Double_num);
 void mycat(FILE *fp,LINK head,char*file_name);
-void myshowfile(FILE *fp,LINK head,int num1,int num2,char *tmp_name);
+void myshowfile(FILE *fp,LINK head, char *tmp_name);
+int sb_inode_used_checker(FILE *fp,int inode_num);//myshowinode하기 전에 사용여부 확인해	서 없으면 애초에 다음 함수 안나오게 stop시키기
+void show_inode(int inode_num,FILE *fp);
+void data_block_num(FILE *fp);//show inode number 
+void my_show_block(FILE *fp,int block_num);
+void mystate(FILE*fp); 
 
 int main(void)
 {
@@ -167,7 +172,7 @@ void init(FILE*fp)
 			{
 		num1=atoi(ptr[1]);
 		num2=atoi(ptr[2]);
-		myshowfile(fp,ia[nowdir_inode-1],num1,num2,ptr[3]);
+		myshowfile(fp,ia[nowdir_inode-1],ptr[3]);
 			}
 		}
 		else if(strcmp("mypwd",ptr[0])==0){
@@ -205,24 +210,44 @@ void init(FILE*fp)
 			mytouch(fp, ptr[1]);
 		}
 		else if(strcmp("myshowinode",ptr[0])==0){
-			printf("i'm myshowinode ptr[1]\n");
+		int inode_number=atoi(ptr[1]);
+		if(inode_number==0){
+			printf("inode number는 1부터 시작합니다 다시 입력하세요\n");
+			return;
+		}
+		if(sb_inode_used_checker(fp,inode_number)==0)//해당함수는 아이노드가 할당되지 않았다고 판단하면 0을 리턴하고 할당되면 1을 리턴합니다
+			return;
+		show_inode(inode_number,fp);		
 		}
 		else if(strcmp("myshowblock",ptr[0])==0){
-			printf("i'm myshowblock ptr[1]\n");
+		int data_block_number=atoi(ptr[1]);
+		if(data_block_number==0){
+			printf("block_data_number는 1부터 시작합니다 다시 입력하세요\n");
+			return;
+		}
+		my_show_block(fp,data_block_number);	
 		}
 		else if(strcmp("mystate",ptr[0])==0){
-			printf("i'm mystate\n");
+		mystate(fp);
 		}
 		else if(strcmp("mytree",ptr[0])==0){
 			mytree(ptr[1], fp);
 		}
 		else if(strcmp("command",ptr[0])==0){
-			printf("i'm command ptr[1]\n");
+	char order[100];
+
+	for(int k=1;k<5;k++){
+		strcat(order,ptr[k]);
+		strcat(order," ");
+	}
+	system(order);
+	for(int l=0;l<100;l++)
+		order[l]='\0';
 		}
 		else
 			printf("wrong command\n");
 }
-void myshowfile(FILE *fp,LINK head,int num1,int num2,char *tmp_name)
+void myshowfile(FILE *fp,LINK head,char *tmp_name)
 {
 	int direct_db=0,single_db=0,Double_db=0;
 	int c;
@@ -235,13 +260,13 @@ void myshowfile(FILE *fp,LINK head,int num1,int num2,char *tmp_name)
 		Double_db=ip->Double;
 
 		if(Double_db==0 && single_db==0)//direct만 쓴경우
-			direct_block_reader(fp,direct_db,num1,num2);
+			direct_block_reader(fp,direct_db);
 		else if(Double_db==0){//single까지 쓴경우
-			direct_block_reader(fp,direct_db,num1,num2);
+			direct_block_reader(fp,direct_db);
 			single_block_reader(fp,single_db);
 		}
 		else{//double까지 다쓴경우
-			direct_block_reader(fp,direct_db,num1,num2);
+			direct_block_reader(fp,direct_db);
 			single_block_reader(fp,single_db);
 			Double_block_reader(fp,Double_db);
 		}
@@ -250,9 +275,9 @@ void myshowfile(FILE *fp,LINK head,int num1,int num2,char *tmp_name)
 		num2=0;
 	}
 	else
-		myshowfile(fp,head->next,num1,num2,tmp_name);
+		myshowfile(fp,head->next,tmp_name);
 }
-void direct_block_reader(FILE *fp,int direct_num,int num1,int num2)
+void direct_block_reader(FILE *fp,int direct_num)
 	//single내 direct중 128이 안되는 애를 접근해야하는 경우 rest에 그 애를 넣는다
 {
 	int letter;
@@ -279,7 +304,7 @@ void single_block_reader(FILE *fp,int single_num)
 		direct[i]=binary_changer(fp,10);
 	}
 	for(int j=0;j<basic;j++)
-		direct_block_reader(fp,direct[j],num1,num2);
+		direct_block_reader(fp,direct[j]);
 }
 void Double_block_reader(FILE *fp,int Double_num)
 	//single_block_reader랑 같은 이유
@@ -306,13 +331,13 @@ void mycat(FILE *fp,LINK head,char*file_name)
 		Double_db=ip->Double;
 
 		if(Double_db==0 && single_db==0)//direct만 쓴경우
-			direct_block_reader(fp,direct_db,0,0);
+			direct_block_reader(fp,direct_db);
 		else if(Double_db==0){//single까지 쓴경우
-			direct_block_reader(fp,direct_db,0,0);
+			direct_block_reader(fp,direct_db);
 			single_block_reader(fp,single_db);
 		}
 		else{//double까지 다쓴경우
-			direct_block_reader(fp,direct_db,0,0);
+			direct_block_reader(fp,direct_db);
 			single_block_reader(fp,single_db);
 			Double_block_reader(fp,Double_db);
 		}
@@ -1426,3 +1451,67 @@ LINK ia_link(LINK head)
 	else return NULL;
 }
 		
+int sb_inode_used_checker(FILE *fp,int inode_num)//myshowinode하기 전에 사용여부 확인해	서 없으면 애초에 다음 함수 안나오게 stop시키기
+{
+	fseek(fp,16+inode_num-1,0);
+	if(getc(fp)=='0')
+		printf("해당 아이노드는 할당되지 않았습니다\n");
+	return 1;
+}
+void show_inode(int inode_num,FILE *fp)
+{
+	inode * ip=(inode*)malloc(sizeof(inode));
+	get_inode(fp,ip,1552 + 79 *(inode_num-1));
+	printf("file type:");
+	printf("%s\n",(ip->ftype)? "regular_file":"directory");
+	printf("file size:");
+	printf("%d\n",ip->size);
+	printf("modified time:");
+	print_time(ip->itime);
+	printf("\n");
+	fseek(fp,16+512+1024+79*(inode_num-1),0);
+	printf("data block list:");
+	data_block_num(fp);
+	data_block_num(fp);
+	data_block_num(fp);
+	printf("\n");
+	//free(ip);
+}
+
+void data_block_num(FILE *fp)//show inode number 
+{
+	int block_number;
+	block_number=binary_changer(fp,10);
+	printf("%d  ",block_number);
+}
+void my_show_block(FILE *fp,int block_num)
+{
+	int ascii;
+
+	fseek(fp,16+512+1024+79*512+128*8*(block_num-1),0);
+	for(int i=0;i<128;i++){
+		ascii=binary_changer(fp,8);
+		printf("%c",ascii);
+	}
+}
+void mystate(FILE *fp)
+{
+	int inode_cnt=0;
+	int db_cnt=0;
+	int i,j;
+	int c;
+
+	fseek(fp,16-1,0);
+	for(i=0;i<512;i++){
+		c=getc(fp);
+		if(c=='0')
+			inode_cnt++;
+	}
+	for(j=0;j<1024;j++){
+		c=getc(fp);
+		if(c=='0')
+			db_cnt++;
+	}
+	printf("free inode : %d\n",inode_cnt);
+	printf("free data block: %d\n",db_cnt);
+}

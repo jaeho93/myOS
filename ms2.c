@@ -60,7 +60,7 @@ void    r_sb_data(FILE *, int);		// superblock_data 제거
 void	p_sb_data_used(FILE *);		// 사용중인 superblock_data 출력;
 
 void mymkdir(LINK head, FILE *fp, char *);
-void write_to_inode_dir(FILE *fp, int sb_inode_empty, int sb_data_empty);
+void write_to_inode_dir(FILE *fp, int sb_inode_empty, int sb_data_empty, char ftype);
 void write_to_data_dir(FILE *fp, int sb_inode_empty, int sb_data_empty);
 void link_newdir_to_list(FILE * fp, LINK head, int sb_inode_empty, char newdir_str[]);
 LINK dir_to_list_sib(FILE *fp, int sb_inode_empty, LINK mother_link);
@@ -80,6 +80,10 @@ void rm_data(FILE *fp, int cnt);
 void myrmdir(FILE *fp, char *ptr);
 LINK mytreeshow1(LINK head, int cnt, char *tt, char *tt2);
 void mytree(char * str, FILE *fp);
+void touch(FILE *fp, int inode);
+void touch_new(FILE *fp, char * str);
+void link_newfile(LINK head, int inode, char *fname);
+void mytouch(FILE *fp, char * str);
 
 
 int main(void)
@@ -166,7 +170,7 @@ void init(FILE*fp)
 			printf("i'm mymv ptr[1] ptr[2]\n");
 		}
 		else if(strcmp("mytouch",ptr[0])==0){
-			printf("i'm mytouch ptr[1]\n");
+			mytouch(fp, ptr[1]);
 		}
 		else if(strcmp("myshowinode",ptr[0])==0){
 			printf("i'm myshowinode ptr[1]\n");
@@ -186,6 +190,64 @@ void init(FILE*fp)
 		else
 			printf("wrong command\n");
 }
+void touch(FILE *fp, int inode)
+{
+	fseek(fp, 16+512+1024+79*(inode-1)+1, 0);
+	time_t touch_new;
+	touch_new = time(NULL);
+	char touch_str[32] = {};
+	binary(touch_new, touch_str, 31);
+	fprintf(fp, "%s", touch_str);
+	fflush(fp);
+}
+
+void touch_new(FILE *fp, char * str)
+{
+	int sb_inode_empty = f_sb_inode_empty(fp);
+	int sb_data_empty  = f_sb_data_empty(fp);
+	u_sb_inode(fp, sb_inode_empty);
+	u_sb_data(fp, sb_data_empty);
+	write_to_inode_dir(fp, sb_inode_empty, sb_data_empty, '1');
+	write_name_to_dir(fp, ia[nowdir_inode-1], sb_inode_empty, str);
+	link_newfile(ia[nowdir_inode-1], sb_inode_empty, str);
+	fflush(fp);
+}
+
+void link_newfile(LINK head, int inode, char *fname)
+{
+	if(head -> next == NULL)
+	{
+		LINK newLINK = (ELEMENT*)malloc(sizeof(ELEMENT));
+		strcpy(newLINK -> name, fname);
+		newLINK -> inode_num = inode;
+		newLINK -> next = NULL;
+		newLINK -> sib = NULL;
+		head -> next = newLINK;
+	}
+	else link_newfile(head -> next, inode, fname);
+}
+
+
+
+void mytouch(FILE *fp, char * str)
+{
+	if(strlen(str) == 0)
+	{
+		printf("파일 이름을 지정하시오.\n");
+		return;
+	}
+	LINK tmp = find_inode(ia[nowdir_inode-1], str);
+	if(tmp == NULL)
+	{
+		touch_new(fp, str);
+	}
+	else
+	{
+		touch(fp, tmp -> inode_num);
+	}
+}
+	
+
 LINK mytreeshow1(LINK head, int cnt, char *tt, char *tt2)
 {
 	if((strcmp(head -> name, ".") != 0) && (strcmp(head -> name, "..") != 0))
@@ -281,6 +343,14 @@ void mycd(LINK head, FILE *fp, char * gostr)
 		tmp = ia[nowdir_inode-1] -> next -> inode_num;
 		tmpLINK = find_name(ia[tmp-1], nowdir_inode);
 		strcpy(now_name, tmpLINK -> name);
+		return ;
+	}
+	int rminode = 0;
+	LINK tmp_next;
+	LINK isdir = find_dir(ia[nowdir_inode-1], gostr, &rminode, tmp_next);
+	if(isdir == NULL)
+	{
+		printf("%s is not directory.\n\n", gostr);
 		return ;
 	}
 	if(ia[nowdir_inode-1] -> next -> next == NULL)
@@ -458,7 +528,7 @@ void mymkdir(LINK head, FILE *fp, char *ptr)
 	int sb_data_empty  = f_sb_data_empty(fp);
 	u_sb_inode(fp, sb_inode_empty);
 	u_sb_data(fp, sb_data_empty);
-	write_to_inode_dir(fp, sb_inode_empty, sb_data_empty);
+	write_to_inode_dir(fp, sb_inode_empty, sb_data_empty, '0');
 	write_to_data_dir(fp, sb_inode_empty, sb_data_empty);
 	for(int i = 0; i < 4; i++)
 		newdir_str[i] = ptr[i];
@@ -467,14 +537,14 @@ void mymkdir(LINK head, FILE *fp, char *ptr)
 	SWITCH = 0;
 }
 
-void write_to_inode_dir(FILE * fp, int sb_inode_empty, int sb_data_empty)
+void write_to_inode_dir(FILE * fp, int sb_inode_empty, int sb_data_empty, char ftype)
 {
 	time_t now = time(NULL);
 	char strTime[32] = {};
 	char strAdr[11] = {};
 	binary(now, strTime, 31);
 	fseek(fp, 16+512+1024+79*(sb_inode_empty-1), 0);
-	fprintf(fp, "0");
+	fprintf(fp, "%c", ftype);
 	fprintf(fp, "%s", strTime);
 	fprintf(fp, "00000000000000000");
 	binary(sb_data_empty, strAdr, 10);

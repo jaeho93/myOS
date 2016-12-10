@@ -113,10 +113,19 @@ void show_inode(int inode_num,FILE *fp);
 void data_block_num(FILE *fp);//show inode number 
 void my_show_block(FILE *fp,int block_num);
 void mystate(FILE*fp); 
+void mymv(FILE *fp, char *str1, char *str2);
+void mv_data(FILE *fp, int cnt, char * str);
+LINK mvtree_file(LINK head, int inode, int *cnt);
+LINK mvfind_file(LINK head, char *str, int *inode);
 
 int main(void)
 {
 	FILE *fp = fopen("myfs", "r+");
+	if(fp == NULL)
+	{
+		printf("error : no myfs\n\n");
+		return 0;
+	}
 	fseek(fp, 16+512+1024+79*512+128*8*(nowdir_inode-1), 0);
 	h = dir_to_list(fp);
 	ia[0] = h;
@@ -204,7 +213,7 @@ void init(FILE*fp)
 			ia_link(h);
 		}
 		else if(strcmp("mymv",ptr[0])==0){
-			printf("i'm mymv ptr[1] ptr[2]\n");
+			mymv(fp, ptr[1], ptr[2]);
 		}
 		else if(strcmp("mytouch",ptr[0])==0){
 			mytouch(fp, ptr[1]);
@@ -233,10 +242,11 @@ void init(FILE*fp)
 		else if(strcmp("mytree",ptr[0])==0){
 			mytree(ptr[1], fp);
 		}
-		else if(strcmp("command",ptr[0])==0){
+		else if(strcmp("byebye", ptr[0])==0)exit(1);
+		else{
 	char order[100];
 
-	for(int k=1;k<5;k++){
+	for(int k=0;k<5;k++){
 		strcat(order,ptr[k]);
 		strcat(order," ");
 	}
@@ -244,9 +254,89 @@ void init(FILE*fp)
 	for(int l=0;l<100;l++)
 		order[l]='\0';
 		}
-		else
-			printf("wrong command\n");
 }
+void mv_data(FILE *fp, int cnt, char * str)
+{	
+	char newdir_str2[5];
+	strcpy(newdir_str2, str);
+	fseek(fp, 16+512+1024+79*512+128*8*(nowdir_inode-1)+(8*4+10)*(cnt-1),0);
+	for(int i = 0; i < 4; i++)
+	{
+		char tmp_str[9] = {};
+		int j = 128;
+		for(int k = 0; k < 8; k++)
+		{
+			tmp_str[k] = newdir_str2[i] / j + '0';
+			newdir_str2[i] %= j; 
+			j /= 2;
+		}
+		fprintf(fp, "%s", tmp_str);
+	}
+	fflush(fp);
+}
+LINK mvtree_file(LINK head, int inode, int *cnt)
+{
+	if(head -> next -> inode_num == inode)
+	{
+		return NULL;
+	}
+	else {(*cnt)++; return mvtree_file(head -> next, inode, cnt);}
+}
+LINK mvfind_file(LINK head, char *str, int *inode)
+{
+	if(strcmp(head -> name, str) == 0)
+	{
+			*inode = head -> inode_num;
+			return head;
+	}
+	else if(head -> next == NULL)
+		return NULL;
+	else
+		return mvfind_file(head -> next, str, inode);
+}
+
+void mymv(FILE *fp, char *str1, char *str2)
+{
+	int mvinode = 0;
+	int cnt = 2;
+	if(strlen(str1) == 0)
+	{
+		printf("파일 이름을 지정하시오.\n\n");
+		return;
+	}
+	if(strlen(str2) == 0)
+	{
+		printf("변경할 이름 혹은 이동할 디렉터리를 지정하시오.\n\n");
+		return;
+	}
+	LINK mvfile = mvfind_file(ia[nowdir_inode-1], str1, &mvinode);
+	if(mvfile == NULL)
+	{
+		printf("%s is not a file.\n\n", str1);
+		return;
+	}
+	LINK tmp = find_inode(ia[nowdir_inode-1], str2);
+	if(tmp == NULL || tmp -> sib == NULL)
+	{
+		strcpy(mvfile -> name, str2);
+		mvtree_file(ia[nowdir_inode-1], mvinode, &cnt);
+		mv_data(fp, cnt, str2);
+		return;
+	}
+	else
+	{
+		int newmother_inode = tmp -> inode_num;
+		rmtree_file(ia[nowdir_inode-1], mvinode, &cnt);
+		rm_data(fp, cnt);
+		write_name_to_dir(fp, ia[newmother_inode-1], mvinode, str1);
+		link_newfile(ia[newmother_inode-1], mvinode, str1);
+	}
+}
+
+//void mycat2(FILE *fp, str1, str2, str3)
+//{
+
+
 void myshowfile(FILE *fp,LINK head,char *tmp_name)
 {
 	int direct_db=0,single_db=0,Double_db=0;

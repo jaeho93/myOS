@@ -84,6 +84,9 @@ void touch(FILE *fp, int inode);
 void touch_new(FILE *fp, char * str);
 void link_newfile(LINK head, int inode, char *fname);
 void mytouch(FILE *fp, char * str);
+LINK find_file(LINK head, char *str, int *inode);
+LINK rmtree_file(LINK head, int inode, int *cnt);
+void myrm(FILE *fp, char * str);
 
 
 int main(void)
@@ -162,6 +165,10 @@ void init(FILE*fp)
 			mymkdir(now_h, fp, ptr[1]);
 			ia_link(h);
 		}
+		else if(strcmp("myrm",ptr[0])==0){
+			myrm(fp, ptr[1]);
+			ia_link(h);
+		}
 		else if(strcmp("myrmdir",ptr[0])==0){
 			myrmdir(fp, ptr[1]);
 			ia_link(h);
@@ -190,6 +197,63 @@ void init(FILE*fp)
 		else
 			printf("wrong command\n");
 }
+
+LINK find_file(LINK head, char *str, int *inode)
+{
+	if(strcmp(head -> name, str) == 0)
+	{
+		if(head -> sib == NULL)
+		{
+			*inode = head -> inode_num;
+		}
+		else return NULL;
+	}
+	else if(head -> next == NULL)
+		return NULL;
+	else
+		return find_file(head -> next, str, inode);
+}
+
+LINK rmtree_file(LINK head, int inode, int *cnt)
+{
+	if(head -> next -> inode_num == inode)
+	{
+		if(head -> next -> next != NULL)
+		{
+			LINK tmp = head -> next -> next;
+			LINK tmp2 = head -> next;
+			head -> next -> next = NULL;
+			head -> next = tmp;
+			free(tmp2);
+		}
+		else head -> next = NULL;
+		return NULL;
+	}
+	else {(*cnt)++; return rmtree_file(head -> next, inode, cnt);}
+}
+
+void myrm(FILE *fp, char * str)
+{
+	int rminode;
+	int cnt = 2;
+	if(strlen(str) == 0)
+	{
+		printf("파일 이름을 지정하시오.\n");
+		return;
+	}
+	LINK rmfile = find_file(ia[nowdir_inode-1], str, &rminode);
+	if(rmfile == NULL)
+	{
+		printf("%s is not a file.\n\n", str);
+		return;
+	}
+	rmtree_file(ia[nowdir_inode-1], rminode, &cnt);
+	r_sb_inode(fp, rminode);
+	r_sb_data(fp, rminode);
+	rm_data(fp, cnt);
+}
+			
+
 void touch(FILE *fp, int inode)
 {
 	fseek(fp, 16+512+1024+79*(inode-1)+1, 0);
@@ -468,7 +532,9 @@ LINK rmtree(LINK head, int inode, int *cnt)
 {
 	if(head -> next -> inode_num == inode)
 	{
+		LINK tmp3 = head -> next -> sib;
 		head -> next -> sib = NULL;
+		link_free(tmp3);
 		if(head -> next -> next != NULL)
 		{
 			LINK tmp = head -> next -> next;
@@ -503,6 +569,11 @@ void myrmdir(FILE *fp, char *ptr)
 	int rminode;
 	int cnt = 2;
 	LINK tmp_next;
+	if(strlen(ptr) == 0)
+	{
+		printf("파일 이름을 지정하시오.\n");
+		return;
+	}
 	LINK rmdir = find_dir(ia[nowdir_inode-1], ptr, &rminode, tmp_next);
 	if(rmdir == NULL)
 	{

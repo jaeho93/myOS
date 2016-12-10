@@ -78,6 +78,8 @@ LINK rmtree(LINK head, int inode, int *cnt);
 LINK find_dir(LINK head, char *str, int *inode, LINK tmp_next);
 void rm_data(FILE *fp, int cnt);
 void myrmdir(FILE *fp, char *ptr);
+LINK mytreeshow1(LINK head, int cnt, char *tt, char *tt2);
+void mytree(char * str, FILE *fp);
 
 
 int main(void)
@@ -104,7 +106,9 @@ void init(FILE*fp)
 	char *ptr[5];
 	int i=0;
 		for(int j=0;j<5;j++)
-			ptr[j]=(char*)malloc(sizeof(char)*50);
+		{
+			ptr[j]=(char*)calloc(50, sizeof(char));
+		}
 		myprompt(fp);
 		scanf("%[^\n]",prompt);
 		word=strtok(prompt," ");
@@ -118,10 +122,11 @@ void init(FILE*fp)
 			if(strcmp("-l",ptr[1])==0)
 				print_list_l(ia[nowdir_inode-1], fp);
 			else if(strcmp("-i",ptr[1])==0)
-			{printf("나우%d\n",nowdir_inode);
+			{
 				print_list_i(ia[nowdir_inode-1]);}
 			else 
 				print_list(ia[nowdir_inode-1]);
+			putchar('\n');
 		}
 		else if(strcmp("mycat",ptr[0])==0){
 			if(strcmp(">",ptr[1])==0){
@@ -135,7 +140,7 @@ void init(FILE*fp)
 			printf("i'm myshowfile ptr[1] ptr[2] ptr[3]\n");
 		}
 		else if(strcmp("mypwd",ptr[0])==0){
-			mypwd(fp);
+			mypwd(fp); putchar('\n');
 		}
 		else if(strcmp("mycd",ptr[0])==0){
 			mycd(now_h, fp, ptr[1]);
@@ -173,7 +178,7 @@ void init(FILE*fp)
 			printf("i'm mystate\n");
 		}
 		else if(strcmp("mytree",ptr[0])==0){
-			printf("i'm mytree\n");
+			mytree(ptr[1], fp);
 		}
 		else if(strcmp("command",ptr[0])==0){
 			printf("i'm command ptr[1]\n");
@@ -181,6 +186,49 @@ void init(FILE*fp)
 		else
 			printf("wrong command\n");
 }
+LINK mytreeshow1(LINK head, int cnt, char *tt, char *tt2)
+{
+	if((strcmp(head -> name, ".") != 0) && (strcmp(head -> name, "..") != 0))
+	{
+		for(int i = 0; i < cnt; i++)
+			printf("%s", tt2);
+		printf("%s%s\n", tt, head -> name);
+		if(head -> sib != NULL)
+		{
+			mytreeshow1(head -> sib, cnt+1, tt, tt2);
+		}
+	}
+	if(head -> next != NULL)
+		return mytreeshow1(head -> next, cnt, tt, tt2);
+	else return NULL;
+}
+
+void mytree(char * str, FILE *fp)
+{
+	int cnt = 0;
+	char tt[] = "--* "; char tt2[] = "---";
+	if(strlen(str) == 0)
+	{
+		printf("%s\n", now_name);
+		mytreeshow1(ia[nowdir_inode-1], cnt, tt, tt2);
+		putchar('\n');
+		return;
+	}
+	LINK tmp = find_inode(ia[nowdir_inode-1], str);
+	fseek(fp, 16+512+1024+79*(tmp -> inode_num - 1), 0);
+	char ftype = getc(fp);
+	if(ftype == '1')
+	{
+		printf("%s is not a directory.\n\n", str);
+		return;
+	}
+	printf("%s\n", tmp -> name);
+	mytreeshow1(ia[tmp->inode_num-1], cnt, tt, tt2);
+	putchar('\n');
+	return;
+
+}
+
 
 LINK find_name(LINK head, int inode)
 {
@@ -211,6 +259,12 @@ LINK find_inode(LINK head, char * str)
 
 void mycd(LINK head, FILE *fp, char * gostr)
 {
+	if(strlen(gostr) == 0)
+	{
+			strcpy(now_name, "/");
+			nowdir_inode = 1;
+			return ;
+	}
 	int tmp = 0;
 	LINK tmpLINK = NULL;
 	if(strcmp(gostr, ".") == 0)
@@ -231,7 +285,7 @@ void mycd(LINK head, FILE *fp, char * gostr)
 	}
 	if(ia[nowdir_inode-1] -> next -> next == NULL)
 	{
-		printf("그런 디렉터리는 없습니다.\n");
+		printf("그런 디렉터리는 없습니다.\n\n");
 		return ;
 	}
 	tmp = ia[nowdir_inode-1] -> next -> inode_num;
@@ -244,7 +298,7 @@ void mycd(LINK head, FILE *fp, char * gostr)
 	}
 	else
 	{
-		printf("mycd 실패!\n");
+		printf("mycd 실패!\n\n");
 		return ;
 	}
 	
@@ -342,11 +396,6 @@ LINK find_dir(LINK head, char *str, int *inode, LINK tmp_next)
 
 LINK rmtree(LINK head, int inode, int *cnt)
 {
-	printf("nowdir:%d\n", nowdir_inode);
-	printf("rminode:%d\n", inode);
-	printf("cnt:%d\n", *cnt);
-	printf("name:%s\n", head -> name);
-
 	if(head -> next -> inode_num == inode)
 	{
 		head -> next -> sib = NULL;
@@ -365,8 +414,6 @@ LINK rmtree(LINK head, int inode, int *cnt)
 }
 void rm_data(FILE *fp, int cnt)
 {	int size = 128*8-(8*4+10)*cnt + 1;
-	printf("사이즈:%d\n", size);
-	printf("cnt:%d\n", cnt);
 	char * str = (char *)malloc(size);
 	str[size-1] = '\0';
 	fseek(fp, 16+512+1024+79*512+128*8*(nowdir_inode-1)+(8*4+10)*(cnt), 0);
@@ -387,9 +434,14 @@ void myrmdir(FILE *fp, char *ptr)
 	int cnt = 2;
 	LINK tmp_next;
 	LINK rmdir = find_dir(ia[nowdir_inode-1], ptr, &rminode, tmp_next);
-	if((rmdir == NULL) || (rmdir -> next -> next != NULL))
+	if(rmdir == NULL)
 	{
-		printf("디렉터리를 지울 수 없습니다.\n");
+		printf("%s is not directory.\n\n", ptr);
+		return ;
+	}
+	if(rmdir -> next -> next != NULL)
+	{
+		printf("%s is not empty.\n\n", ptr);
 		return ;
 	}
 	rmtree(ia[nowdir_inode-1], rminode, &cnt);
@@ -397,7 +449,6 @@ void myrmdir(FILE *fp, char *ptr)
 	r_sb_data(fp, rminode);
 	rm_data(fp, cnt);
 	ia[rminode-1] = NULL;
-	printf("check");
 }
 
 void mymkdir(LINK head, FILE *fp, char *ptr)

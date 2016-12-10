@@ -24,6 +24,13 @@ typedef struct linked_list_dir
 
 typedef ELEMENT *LINK;
 
+typedef struct linked_list_data
+{
+	char DB[128];
+	struct linked_list_data * next;
+}LINK_DB;
+typedef LINK_DB* LINKDB;
+
 int SERCH = 1;
 int nowdir_inode = 1; // 루트 디렉터리의 경우!!!!!!!!!!!
 LINK h	   = NULL;
@@ -87,6 +94,10 @@ void mytouch(FILE *fp, char * str);
 LINK find_file(LINK head, char *str, int *inode);
 LINK rmtree_file(LINK head, int inode, int *cnt);
 void myrm(FILE *fp, char * str);
+void mycpfrom(FILE *fp, char * str1, char * str2);
+void push_DB(FILE *fp, LINKDB database, int datablock);
+LINKDB write_to_LINK_DB(FILE *out);
+void write_to_inode_ind(FILE *fp, int inode, int size, int dir, int ind, int dou);
 
 
 int main(void)
@@ -159,7 +170,8 @@ void init(FILE*fp)
 			printf("i'm mycpto ptr[1] ptr[2]\n");
 		}
 		else if(strcmp("mycpfrom",ptr[0])==0){
-			printf("i'm mycpfrom ptr[1] ptr[2]\n");
+			mycpfrom(fp, ptr[1], ptr[2]);
+			ia_link(h);
 		}
 		else if(strcmp("mymkdir",ptr[0])==0){
 			mymkdir(now_h, fp, ptr[1]);
@@ -310,6 +322,188 @@ void mytouch(FILE *fp, char * str)
 		touch(fp, tmp -> inode_num);
 	}
 }
+
+void mycpfrom(FILE *fp, char * str1, char * str2)
+{
+	if(strlen(str1) == 0 || strlen(str2) == 0)
+	{
+		printf("파일 이름을 지정하시오.\n\n");
+		return;
+	}
+	FILE *out = fopen(str1, "r");
+	if(out == NULL)
+	{
+		printf("그런 파일이 없습니다.\n\n");
+		return;
+	}
+	int total_byte = 0, now = 0; char c;
+	while((c = getc(out)) != EOF)
+		total_byte++;
+	fseek(out, 0, 0);
+	LINKDB database = write_to_LINK_DB(out);
+	int data_block = total_byte / 128;
+	if((total_byte % 128) != 0)
+		data_block++;
+	
+	if(data_block == 1)
+	{
+		int sb_inode_empty = f_sb_inode_empty(fp);
+		u_sb_inode(fp, sb_inode_empty);
+		int sb_data_empty = f_sb_data_empty(fp);
+		u_sb_data(fp, sb_data_empty);
+		write_to_inode_ind(fp, sb_inode_empty, total_byte, sb_data_empty, 0, 0);
+		write_name_to_dir(fp, ia[nowdir_inode-1], sb_inode_empty, str2);
+		link_newfile(ia[nowdir_inode-1], sb_inode_empty, str2);
+		fseek(fp, 16+512+1024+79*512+(128*8)*(sb_data_empty-1), 0);
+		push_DB(fp, database, sb_data_empty);
+		fflush(fp);
+	}	
+
+}
+void push_DB(FILE *fp, LINKDB database, int datablock)
+{
+	char str[9] = {};
+	for(int i = 0; i < 128; i++)
+	{
+		binary(database -> DB[i], str, 8);
+		fprintf(fp, "%s", str);
+	}
+}
+
+
+
+LINKDB write_to_LINK_DB(FILE *out)
+{
+	int Sw = 0; char c;
+	LINKDB head = (LINK_DB*)malloc(sizeof(LINK_DB));
+	for(int i = 0; i < 128; i++)
+	{
+		if((c = getc(out)) != EOF)
+			head -> DB[i] = c;
+		else {Sw = 1;break;}
+	}
+	if(Sw = 1)
+	{
+		head -> next = NULL;
+		return head;
+	}
+	else
+	{
+		head -> next = write_to_LINK_DB(out);
+		return head;
+	}
+}
+	/*
+	int c, total_byte = 0, need_data = 0;
+	while((c = getc(out)) != EOF)
+	{
+		total_byte++;
+	}
+	if(total byte <= 128)
+		need_data = 1;
+	else{
+	need_data = total_byte / 128;
+	if((total_byte % 128) != 0)
+		need_data++;
+	}
+	int indirect = 0, Double = 0;
+	if(need_data > 1 && need_data < 104)
+		indirect = 1;
+	else if (need_data > 103)
+	{ indirect = 1, Double = 1; }
+	if(Double == 1)
+	{
+		indirect += (need_data - 103) / 102;
+		if((need_data-103)%102 != 0)
+			indirect++;
+	}
+	int nd = 0, id = 0;
+	if(need_data > 1)
+		nd = need_data-1;
+	if(indirect > 1)
+		id = indirect-1;
+	int * direct_array = (int *)calloc(nd+1, sizeof(int));
+	int * indirect_array = (int *)calloc(id+1, sizeof(int));
+	int sb_inode_empty = f_sb_inode_empty(fp);
+	u_sb_inode(fp, sb_inode_empty);
+	int sb_data_empty = f_sb_data_empty(fp);
+	u_sb_data(fp, sb_data_empty);
+	for(int i = 0; i < nd; i++)
+	{
+		direct_array[i] = f_sb_data_empty(fp);
+		u_sb_data(fp, direct_array[i]);
+	}
+	for(int i = 0; i < id; i++)
+	{
+		indirect_array[i] = f_sb_data_empty(fp);
+		u_sb_data(fp, indirect_array[i]);
+	}
+	int sb_indirect = 0, sb_Double = 0;
+	if(indirect >= 1)
+	{
+		sb_indirect = f_sb_data_empty(fp);
+		u_sb_data(fp, sb_indirect);
+	}
+	if(Direct == 1)
+	{
+		sb_Double = f_sb_data_empty(fp);
+		u_sb_data(fp, sb_Double);
+	}
+	write_to_inode_ind(fp, sb_inode_empty, total_byte, sb__data_empty, sb_indirect, sb_Double);
+	write_name_to_dir(fp, ia[nowdir_inode-1], sb_inode_empty, str);
+	link_new_file(ia[nowdir_inode-1], sb_inode_empty, str);
+	datacopy(out, fp, total_byte, sb_data_empty, direct_array, indirect_array, sb_indirect, sb_Double, nd);
+}
+void datacopy(FILE *out, FILE *fp, int size, int data, int * dataa, int * inda, int ind, int Dou, int block)
+{
+		char str[9] = {}; int j = 128;
+	fseek(out, 0, 0); fseek(fp, 16+512+1024+79*512+(128*8)*(data-1), 0);
+	int now = 0; char c;
+	for(; now <= 127; now++)
+	{
+		if((c = getc(out)) == EOF){return;}
+		j = 128;
+		for(int k = 0; k < 8; k++)
+		{
+			str[k] = c / j + '0';
+			c %= j;
+			j /= 2;
+		}
+			fprintf(fp, "%s", str);
+		for(int i = 0; i < 8; i++)
+			str[i] = 0;
+	}
+	for(int i = 0; i < 102; i++)
+	{
+		fseek(fp, 16+512+1024+79*512+(128*8)(ind-1), 0);
+
+
+
+
+
+
+*/
+
+void write_to_inode_ind(FILE *fp, int inode, int size, int dir, int ind, int dou)
+{
+	time_t now = time(NULL);
+	char strTime[32] = {};
+	char strAdr[11] = {};
+	char strsize[18] = {};
+	binary(size, strsize, 17);
+	binary(now, strTime, 31);
+	fseek(fp, 16+512+1024+79*(inode-1), 0);
+	fprintf(fp, "1");
+	fprintf(fp, "%s", strTime);
+	fprintf(fp, "%s", strsize);
+	binary(dir, strAdr, 10);
+	fprintf(fp, "%s", strAdr);
+	binary(ind, strAdr, 10);
+	fprintf(fp, "%s", strAdr);
+	binary(dou, strAdr, 10);
+	fprintf(fp, "%s", strAdr);
+}
+
 	
 
 LINK mytreeshow1(LINK head, int cnt, char *tt, char *tt2)

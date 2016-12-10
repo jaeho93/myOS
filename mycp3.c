@@ -106,23 +106,26 @@ int main(void){
 	P = string_to_list(ifp, P);
 	printf_list(P);
 
+	write_content_to_data(, P);
+
 	return 0;
 }
 
 void merge(linked_list *P){
-	// 아이노드를 쓴지 안 쓴지는 다른 함수에 구현 되어있음@@
+	// 아이노드를 쓴지 안 쓴지는 다른 파일에 구현 되어있음@@
 	char c;
 	int t=0;
-
-	int pos_merge = 0;
-	int pos_direct = 0;
-	int pos_indirect = 0;
-	int pos_D_indirect = 0;
-	int pos_indirect_num = 0;
-	int pos_D_indirect_num = 0;
+	
+	int pos_merge = 0; //pos_merge는 복사할 파일의 크기(위의 전역변수 pos랑 거의 같음)
+	int pos_direct = 0; // 아이노드 다이렉트의 값
+	int pos_indirect = 0; //아이노드 싱글인다이렉트 값
+	int pos_D_indirect = 0; //아이노드 더블인다이렉트 값
+	int pos_indirect_num = 0; // 아이노드 싱글인다이렉트에서 10비트로 표현되어있는 다른 데이터블록 번호
+	int pos_D_indirect_num = 0; // 아이노드 더블인다이렉트에서 10비트 표현 다른 데이터블록 번호
+	
 
 	fseek(fp, 16+512+1024+(79* /* 새 파일의 아이노드*/)+32,SEEK_SET);
-	pos_merge = binary_changer(fp, 17);  //pos_merge는 복사할 파일의 크기
+	pos_merge = binary_changer(fp, 17); 
 
 	FILE *P_f1;
 	char *F1;   // F1은 복사할 파일의 내용을 한 곳에 모을 포인터
@@ -132,9 +135,9 @@ void merge(linked_list *P){
 
 	if(pos_merge <= 128){
 		fseek(fp, 16+512+1024+(79* /*새 파일의 아이노드번호*/)+49,SEEK_SET);
-		pos_direct = binary_changer(fp, 10);  //pos_data = 아이노드 다이렉트의 값
+		pos_direct = binary_changer(fp, 10); 
 
-		fseek(fp, 16+512+1024+(79*512)+(128*8*(pos_direct-1)));   //pos_data 어디였는지 기억이 안남
+		fseek(fp, 16+512+1024+(79*512)+(128*8*(pos_direct-1)));  
 
 		for(t=0; t < pos_merge; t++){
 			c = getc(fp);
@@ -165,8 +168,13 @@ void merge(linked_list *P){
 		for(t=1; t < (size-1); t++){
 			pos_indirect_num = binary_changer(fp,10);
 			fseek(fp, 16+512+1024+(79*512)+(128*8*(pos_indirect_num-1)));
+			/*if(P->next == NULL){
+				for(inr k=0; i<(pos_merge-(128*(size-1))); k++){
+					c = getc(P->DB[128*t+k]);
+					F1[128*t+k] = c;
+				}*/
 			for(int k=0; k<128; k++){
-				c = getc(P->DB[k]);
+				c = getc(P->DB[128*t+k]);
 				F1[128*t+k] = c;
 			}
 			fseek(fp, 16+512+1024+(79*512)+(128*8*(pos_indirect-1)+10*t));
@@ -174,7 +182,7 @@ void merge(linked_list *P){
 		}
 	}
 
-	else{		//next포인터가 NULL이면은 pos까지만 문자받음
+	else{
 		fseek(fp, 16+512+1024+(79* /*새파일의 아이노드*/)+49,SEEK_SET);
 		pos_direct = binary_changer(fp, 10);
 
@@ -196,7 +204,7 @@ void merge(linked_list *P){
 			pos_indirect_num = binary_changer(fp,10);
 			fseek(fp, 16+512+1024+(79*512)+(128*8*(pos_indirect_num-1)));
 			for(int k=0; k<128; k++){
-				c = getc(P->DB[k]);
+				c = getc(P->DB[128*t+k]);
 				F1[128*t+k] = c;
 			}
 			fseek(fp, 16+512+1024+(79*512)+(128*8*(pos_indirect-1)+10*t));
@@ -212,7 +220,7 @@ void merge(linked_list *P){
 			pos_D_indirect_num = binary_changer(fp,10);
 			fseek(fp, 16+512+1024+(79*512)+(128*8*(pos_indirect_num-1)));
 			for(int k=0; k<7; k++){
-				c = getc(P->DB[k]);
+				c = getc(P->DB[128*(103+t)+k]);
 				F1[128*(103+t)+k] = c;
 			} // P->next가 NULL이면 k<128말고 pos_merge%128까지 하게 하는 거 추가하기
 			fseek(fp, 16+512+1024+(79*512)+(128*8*(pos_D_indirect-1)+10*t));

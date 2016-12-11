@@ -24,15 +24,6 @@ typedef struct linked_list_dir
 
 typedef ELEMENT *LINK;
 
-typedef struct linked_list_data
-{
-	char DB[128];
-	struct linked_list_data * next;
-}LINK_DB;
-typedef LINK_DB* LINKDB;
-
-int num1=0,num2=0;
-int show_cnt=0;//myshowfile하기 위해 mycat()처럼 file의 전체를 펴놓고, num1 과 num2 사이의 카운트가 되면 출력하도록 변경
 int SERCH = 1;
 int nowdir_inode = 1; // 루트 디렉터리의 경우!!!!!!!!!!!
 LINK h	   = NULL;
@@ -96,36 +87,11 @@ void mytouch(FILE *fp, char * str);
 LINK find_file(LINK head, char *str, int *inode);
 LINK rmtree_file(LINK head, int inode, int *cnt);
 void myrm(FILE *fp, char * str);
-void mycpfrom(FILE *fp, char * str1, char * str2);
-void push_DB(FILE *fp, LINKDB database, int datablock);
-LINKDB write_to_LINK_DB(FILE *out);
-void write_to_inode_ind(FILE *fp, int inode, int size, int dir, int ind, int dou);
-LINKDB db_link(LINKDB * ary, LINKDB head, int *cnt);
-LINKDB find_db(LINKDB head, int size, int *cnt);
 
-void direct_block_reader(FILE *fp,int direct_num);
-void single_block_reader(FILE *fp,int single_num);
-void Double_block_reader(FILE *fp,int Double_num);
-void mycat(FILE *fp,LINK head,char*file_name);
-void myshowfile(FILE *fp,LINK head, char *tmp_name);
-int sb_inode_used_checker(FILE *fp,int inode_num);//myshowinode하기 전에 사용여부 확인해	서 없으면 애초에 다음 함수 안나오게 stop시키기
-void show_inode(int inode_num,FILE *fp);
-void data_block_num(FILE *fp);//show inode number 
-void my_show_block(FILE *fp,int block_num);
-void mystate(FILE*fp); 
-void mymv(FILE *fp, char *str1, char *str2);
-void mv_data(FILE *fp, int cnt, char * str);
-LINK mvtree_file(LINK head, int inode, int *cnt);
-LINK mvfind_file(LINK head, char *str, int *inode);
 
 int main(void)
 {
 	FILE *fp = fopen("myfs", "r+");
-	if(fp == NULL)
-	{
-		printf("error : no myfs\n\n");
-		return 0;
-	}
 	fseek(fp, 16+512+1024+79*512+128*8*(nowdir_inode-1), 0);
 	h = dir_to_list(fp);
 	ia[0] = h;
@@ -175,14 +141,10 @@ void init(FILE*fp)
 				//ptr[2]에 파일명 집어 넣고 함수의 인자로 ptr[2]집어 넣으면 됩니다
 			}
 			else
-			mycat(fp,ia[nowdir_inode-1],ptr[1]);
+				printf("i'm mycat ptr[1]\n");
 		}
 		else if(strcmp("myshowfile",ptr[0])==0){
-			{
-		num1=atoi(ptr[1]);
-		num2=atoi(ptr[2]);
-		myshowfile(fp,ia[nowdir_inode-1],ptr[3]);
-			}
+			printf("i'm myshowfile ptr[1] ptr[2] ptr[3]\n");
 		}
 		else if(strcmp("mypwd",ptr[0])==0){
 			mypwd(fp); putchar('\n');
@@ -197,8 +159,7 @@ void init(FILE*fp)
 			printf("i'm mycpto ptr[1] ptr[2]\n");
 		}
 		else if(strcmp("mycpfrom",ptr[0])==0){
-			mycpfrom(fp, ptr[1], ptr[2]);
-			ia_link(h);
+			printf("i'm mycpfrom ptr[1] ptr[2]\n");
 		}
 		else if(strcmp("mymkdir",ptr[0])==0){
 			mymkdir(now_h, fp, ptr[1]);
@@ -213,228 +174,28 @@ void init(FILE*fp)
 			ia_link(h);
 		}
 		else if(strcmp("mymv",ptr[0])==0){
-			mymv(fp, ptr[1], ptr[2]);
+			printf("i'm mymv ptr[1] ptr[2]\n");
 		}
 		else if(strcmp("mytouch",ptr[0])==0){
 			mytouch(fp, ptr[1]);
 		}
 		else if(strcmp("myshowinode",ptr[0])==0){
-		int inode_number=atoi(ptr[1]);
-		if(inode_number==0){
-			printf("inode number는 1부터 시작합니다 다시 입력하세요\n");
-			return;
-		}
-		if(sb_inode_used_checker(fp,inode_number)==0)//해당함수는 아이노드가 할당되지 않았다고 판단하면 0을 리턴하고 할당되면 1을 리턴합니다
-			return;
-		show_inode(inode_number,fp);		
+			printf("i'm myshowinode ptr[1]\n");
 		}
 		else if(strcmp("myshowblock",ptr[0])==0){
-		int data_block_number=atoi(ptr[1]);
-		if(data_block_number==0){
-			printf("block_data_number는 1부터 시작합니다 다시 입력하세요\n");
-			return;
-		}
-		my_show_block(fp,data_block_number);	
+			printf("i'm myshowblock ptr[1]\n");
 		}
 		else if(strcmp("mystate",ptr[0])==0){
-		mystate(fp);
+			printf("i'm mystate\n");
 		}
 		else if(strcmp("mytree",ptr[0])==0){
 			mytree(ptr[1], fp);
 		}
-		else if(strcmp("byebye", ptr[0])==0)exit(1);
-		else{
-	char order[100];
-
-	for(int k=0;k<5;k++){
-		strcat(order,ptr[k]);
-		strcat(order," ");
-	}
-	system(order);
-	for(int l=0;l<100;l++)
-		order[l]='\0';
+		else if(strcmp("command",ptr[0])==0){
+			printf("i'm command ptr[1]\n");
 		}
-}
-void mv_data(FILE *fp, int cnt, char * str)
-{	
-	char newdir_str2[5];
-	strcpy(newdir_str2, str);
-	fseek(fp, 16+512+1024+79*512+128*8*(nowdir_inode-1)+(8*4+10)*(cnt-1),0);
-	for(int i = 0; i < 4; i++)
-	{
-		char tmp_str[9] = {};
-		int j = 128;
-		for(int k = 0; k < 8; k++)
-		{
-			tmp_str[k] = newdir_str2[i] / j + '0';
-			newdir_str2[i] %= j; 
-			j /= 2;
-		}
-		fprintf(fp, "%s", tmp_str);
-	}
-	fflush(fp);
-}
-LINK mvtree_file(LINK head, int inode, int *cnt)
-{
-	if(head -> next -> inode_num == inode)
-	{
-		return NULL;
-	}
-	else {(*cnt)++; return mvtree_file(head -> next, inode, cnt);}
-}
-LINK mvfind_file(LINK head, char *str, int *inode)
-{
-	if(strcmp(head -> name, str) == 0)
-	{
-			*inode = head -> inode_num;
-			return head;
-	}
-	else if(head -> next == NULL)
-		return NULL;
-	else
-		return mvfind_file(head -> next, str, inode);
-}
-
-void mymv(FILE *fp, char *str1, char *str2)
-{
-	int mvinode = 0;
-	int cnt = 2;
-	if(strlen(str1) == 0)
-	{
-		printf("파일 이름을 지정하시오.\n\n");
-		return;
-	}
-	if(strlen(str2) == 0)
-	{
-		printf("변경할 이름 혹은 이동할 디렉터리를 지정하시오.\n\n");
-		return;
-	}
-	LINK mvfile = mvfind_file(ia[nowdir_inode-1], str1, &mvinode);
-	if(mvfile == NULL)
-	{
-		printf("%s is not a file.\n\n", str1);
-		return;
-	}
-	LINK tmp = find_inode(ia[nowdir_inode-1], str2);
-	if(tmp == NULL || tmp -> sib == NULL)
-	{
-		strcpy(mvfile -> name, str2);
-		mvtree_file(ia[nowdir_inode-1], mvinode, &cnt);
-		mv_data(fp, cnt, str2);
-		return;
-	}
-	else
-	{
-		int newmother_inode = tmp -> inode_num;
-		rmtree_file(ia[nowdir_inode-1], mvinode, &cnt);
-		rm_data(fp, cnt);
-		write_name_to_dir(fp, ia[newmother_inode-1], mvinode, str1);
-		link_newfile(ia[newmother_inode-1], mvinode, str1);
-	}
-}
-
-//void mycat2(FILE *fp, str1, str2, str3)
-//{
-
-
-void myshowfile(FILE *fp,LINK head,char *tmp_name)
-{
-	int direct_db=0,single_db=0,Double_db=0;
-	int c;
-		LINK k=head;
-	inode *ip=(inode*)malloc(sizeof(inode));
-	if(strcmp(k->name,tmp_name)==0){
-		get_inode(fp,ip,16+512+1024+79*(k->inode_num-1));
-		direct_db=ip->direct;
-		single_db=ip->single;
-		Double_db=ip->Double;
-
-		if(Double_db==0 && single_db==0)//direct만 쓴경우
-			direct_block_reader(fp,direct_db);
-		else if(Double_db==0){//single까지 쓴경우
-			direct_block_reader(fp,direct_db);
-			single_block_reader(fp,single_db);
-		}
-		else{//double까지 다쓴경우
-			direct_block_reader(fp,direct_db);
-			single_block_reader(fp,single_db);
-			Double_block_reader(fp,Double_db);
-		}
-		show_cnt=0;
-		num1=0;
-		num2=0;
-	}
-	else
-		myshowfile(fp,head->next,tmp_name);
-}
-void direct_block_reader(FILE *fp,int direct_num)
-	//single내 direct중 128이 안되는 애를 접근해야하는 경우 rest에 그 애를 넣는다
-{
-	int letter;
-	int basic=128;
-
-	fseek(fp,16+512+1024+79*512+128*8*(direct_num-1),0);
-	for(int i=0;i<basic;i++){
-		letter=binary_changer(fp,8);
-		show_cnt++;
-		if(num1==0 && num2==0)
-			printf("%c",letter);
-		else if(num1<=show_cnt && show_cnt <=num2)
-			printf("%c",letter);
-	}
-}
-//single indirect의 주소로 접근해서 주소들을 10진수로 바꾼상태로 저장 하여 해당 >주소를 direct_block_reader로 보내기
-void single_block_reader(FILE *fp,int single_num)
-	//cnt는 single내에서 쓰이는 direct의 갯수입니다
-{
-	int basic=102;
-	int direct[102];
-	fseek(fp,16+512+1024+79*512+128*8*(single_num-1),0);
-	for(int i=0;i<basic;i++){
-		direct[i]=binary_changer(fp,10);
-	}
-	for(int j=0;j<basic;j++)
-		direct_block_reader(fp,direct[j]);
-}
-void Double_block_reader(FILE *fp,int Double_num)
-	//single_block_reader랑 같은 이유
-{
-	int basic=102;
-	int single[102];
-	fseek(fp,16+512+1024+79*512+128*8*(Double_num-1),0);
-	for(int i=0;i<basic;i++){
-		single[i]=binary_changer(fp,10);
-	}
-	for(int j=0;j<basic;j++)
-		single_block_reader(fp,single[j]);
-}
-void mycat(FILE *fp,LINK head,char*file_name)
-{
-	int direct_db=0,single_db=0,Double_db=0;
-
-	inode *ip=(inode*)malloc(sizeof(inode));
-	LINK k=head;
-	if(strcmp(k->name,file_name)==0){
-		get_inode(fp,ip,16+512+1024+79*(k->inode_num-1));//inode의 시작위치까지만보내주면 아이노드 정보 10진화 해서 ip에 다 리턴해줌
-			direct_db=ip->direct;//몇번째 db에 있는지 10진수 형태로주소가지고 있음
-		single_db=ip->single;
-		Double_db=ip->Double;
-
-		if(Double_db==0 && single_db==0)//direct만 쓴경우
-			direct_block_reader(fp,direct_db);
-		else if(Double_db==0){//single까지 쓴경우
-			direct_block_reader(fp,direct_db);
-			single_block_reader(fp,single_db);
-		}
-		else{//double까지 다쓴경우
-			direct_block_reader(fp,direct_db);
-			single_block_reader(fp,single_db);
-			Double_block_reader(fp,Double_db);
-		}
-	}
-	else
-		mycat(fp,head->next,file_name);
-
+		else
+			printf("wrong command\n");
 }
 
 LINK find_file(LINK head, char *str, int *inode)
@@ -549,322 +310,6 @@ void mytouch(FILE *fp, char * str)
 		touch(fp, tmp -> inode_num);
 	}
 }
-
-void mycpfrom(FILE *fp, char * str1, char * str2)
-{
-	if(strlen(str1) == 0 || strlen(str2) == 0)
-	{
-		printf("파일 이름을 지정하시오.\n\n");
-		return;
-	}
-	FILE *out = fopen(str1, "r");
-	if(out == NULL)
-	{
-		printf("그런 파일이 없습니다.\n\n");
-		return;
-	}
-	int total_byte = 0, now = 0; char c;
-	while((c = getc(out)) != EOF)
-		total_byte++;
-	fseek(out, 0, 0);
-	LINKDB database = write_to_LINK_DB(out);
-	int data_block = total_byte / 128;
-	if((total_byte % 128) != 0)
-		data_block++;
-	
-	if(data_block == 1)
-	{
-		int sb_inode_empty = f_sb_inode_empty(fp);
-		u_sb_inode(fp, sb_inode_empty);
-		int sb_data_empty = f_sb_data_empty(fp);
-		u_sb_data(fp, sb_data_empty);
-		write_to_inode_ind(fp, sb_inode_empty, total_byte, sb_data_empty, 0, 0);
-		write_name_to_dir(fp, ia[nowdir_inode-1], sb_inode_empty, str2);
-		link_newfile(ia[nowdir_inode-1], sb_inode_empty, str2);
-		fseek(fp, 16+512+1024+79*512+(128*8)*(sb_data_empty-1), 0);
-		push_DB(fp, database, sb_data_empty);
-		fflush(fp);
-	}	
-	else if((data_block > 1) && (data_block < 104))
-	{
-		int sb_inode_empty = f_sb_inode_empty(fp);
-		u_sb_inode(fp, sb_inode_empty);
-		int sb_data_empty = f_sb_data_empty(fp);
-		u_sb_data(fp, sb_data_empty);
-		write_name_to_dir(fp, ia[nowdir_inode-1], sb_inode_empty, str2);
-		link_newfile(ia[nowdir_inode-1], sb_inode_empty, str2);
-		fseek(fp, 16+512+1024+79*512+(128*8)*(sb_data_empty-1), 0);
-		push_DB(fp, database, sb_data_empty);
-		int inode_array[102] = {}, sb_data, sb_indirect_empty;
-		LINKDB LINKDB_array[102]; int db_cnt = 0;
-		db_link(LINKDB_array, database -> next, &db_cnt);
-		sb_indirect_empty = f_sb_data_empty(fp);
-		u_sb_data(fp, sb_indirect_empty);
-		for(int i = 0; db_cnt; i++)
-		{
-			sb_data = f_sb_data_empty(fp);
-			u_sb_data(fp, sb_data);
-			inode_array[i] = sb_data;
-			fseek(fp, 16+512+1024+79*512+(128*8)*(sb_data-1), 0);
-			push_DB(fp, LINKDB_array[i], sb_data);
-		}
-		fseek(fp, 16+512+1024+79+512+(128*8)*(sb_indirect_empty-1), 0);
-		for(int i = 0; i < db_cnt; i++)
-		{
-			char str[11] = {};
-			binary(inode_array[i], str, 10);
-			fprintf(fp, "%s", str);
-		}
-		write_to_inode_ind(fp, sb_inode_empty, total_byte, sb_data_empty, sb_indirect_empty, 0);
-		fflush(fp);
-	}
-	else
-	{
-		int sb_inode_empty = f_sb_inode_empty(fp);
-		u_sb_inode(fp, sb_inode_empty);
-		int sb_data_empty = f_sb_data_empty(fp);
-		u_sb_data(fp, sb_data_empty);
-		write_name_to_dir(fp, ia[nowdir_inode-1], sb_inode_empty, str2);
-		link_newfile(ia[nowdir_inode-1], sb_inode_empty, str2);
-		fseek(fp, 16+512+1024+79*512+(128*8)*(sb_data_empty-1), 0);
-		push_DB(fp, database, sb_data_empty);
-		int inode_array[102] = {}, sb_data, sb_indirect_empty;
-		LINKDB LINKDB_array[102] = {}; int db_cnt = 0;
-		db_link(LINKDB_array, database -> next, &db_cnt);
-		sb_indirect_empty = f_sb_data_empty(fp);
-		u_sb_data(fp, sb_indirect_empty);
-		for(int i = 0; 102; i++)
-		{
-			sb_data = f_sb_data_empty(fp);
-			u_sb_data(fp, sb_data);
-			inode_array[i] = sb_data;
-			fseek(fp, 16+512+1024+79*512+(128*8)*(sb_data-1), 0);
-			push_DB(fp, LINKDB_array[i], sb_data);
-		}
-		fseek(fp, 16+512+1024+79*512+(128*8)*(sb_indirect_empty-1), 0);
-		for(int i = 0; i < 102; i++)
-		{
-			char str[11] = {};
-			binary(inode_array[i], str, 10);
-			fprintf(fp, "%s", str);
-		}
-		int sb_data_double = f_sb_data_empty(fp);
-		u_sb_data(fp, sb_data_double);
-		write_to_inode_ind(fp, sb_inode_empty, total_byte, sb_data_empty, sb_indirect_empty, sb_data_double);
-		int double_array[102][102] = {}; int ind_array[102]; LINKDB LINKDBarray2[102][102] = {}; int need_ind = (total_byte-103*128)/128/102;
-		int cnt2 = 0; LINKDB start = find_db(database, 102, &cnt2);
-		if((total_byte-103*128)%(128*102) != 0)
-			need_ind++;
-		int cnt3;
-		for(int j = 0; j < 102; j++)
-		{
-				cnt3 = 0;
-				start = db_link(LINKDBarray2[j], start, &cnt3);
-		}
-		int now = 0;
-		for(int i = 0; i < need_ind; i++)
-		{
-			for(int j = 0; j < 102; j++)
-				if(now < data_block)
-				{
-					now++;
-					sb_data = f_sb_data_empty(fp);
-					u_sb_data(fp, sb_data);
-					double_array[i][j] = sb_data;
-					fseek(fp, 16+512+1024+79*512+(128*8)*(sb_data-1), 0);
-					push_DB(fp, LINKDBarray2[i][j], sb_data);
-				}
-				else break;
-		}
-		for(int i = 0; i < need_ind; i++)
-		{
-			int sb_ind = f_sb_data_empty(fp);
-			ind_array[i] = sb_ind;
-			u_sb_data(fp, sb_ind);
-			fseek(fp, 16+512+1024+79*512+(128*8)*(sb_ind-1), 0);
-			for(int j = 0; j < 102; j++)
-			{
-				char str[11] = {};
-				binary(double_array[i][j], str, 10);
-				fprintf(fp, "%s", str);
-			}
-		}
-		fseek(fp, 16+512+1024+79*512+(128*8)*(sb_data_double-1), 0);
-		for(int i = 0; i < need_ind; i++)
-		{
-			char str[11] = {};
-			binary(ind_array[i], str, 10);
-			fprintf(fp, "%s", str);
-		}
-	}
-
-}
-LINKDB find_db(LINKDB head, int size, int *cnt)
-{
-	if((*cnt)++ < size)
-		find_db(head -> next, size, cnt);
-	else return head;
-}
-
-
-
-
-LINKDB db_link(LINKDB * ary, LINKDB head, int *cnt)
-{
-	ary[(*cnt)++] = head;
-	if(*cnt < 102)
-	{
-		if(head -> next != NULL)
-			db_link(ary, head -> next, cnt);
-		else
-			return NULL;
-	}
-	else return head -> next;
-}
-void push_DB(FILE *fp, LINKDB database, int datablock)
-{
-	char str[9] = {};
-	for(int i = 0; i < 128; i++)
-	{
-		binary(database -> DB[i], str, 8);
-		fprintf(fp, "%s", str);
-	}
-}
-
-
-
-LINKDB write_to_LINK_DB(FILE *out)
-{
-	int Sw = 0; char c;
-	LINKDB head = (LINK_DB*)malloc(sizeof(LINK_DB));
-	for(int i = 0; i < 128; i++)
-	{
-		if((c = getc(out)) != EOF)
-			head -> DB[i] = c;
-		else {Sw = 1;break;}
-	}
-	if(Sw = 1)
-	{
-		head -> next = NULL;
-		return head;
-	}
-	else
-	{
-		head -> next = write_to_LINK_DB(out);
-		return head;
-	}
-}
-	/*
-	int c, total_byte = 0, need_data = 0;
-	while((c = getc(out)) != EOF)
-	{
-		total_byte++;
-	}
-	if(total byte <= 128)
-		need_data = 1;
-	else{
-	need_data = total_byte / 128;
-	if((total_byte % 128) != 0)
-		need_data++;
-	}
-	int indirect = 0, Double = 0;
-	if(need_data > 1 && need_data < 104)
-		indirect = 1;
-	else if (need_data > 103)
-	{ indirect = 1, Double = 1; }
-	if(Double == 1)
-	{
-		indirect += (need_data - 103) / 102;
-		if((need_data-103)%102 != 0)
-			indirect++;
-	}
-	int nd = 0, id = 0;
-	if(need_data > 1)
-		nd = need_data-1;
-	if(indirect > 1)
-		id = indirect-1;
-	int * direct_array = (int *)calloc(nd+1, sizeof(int));
-	int * indirect_array = (int *)calloc(id+1, sizeof(int));
-	int sb_inode_empty = f_sb_inode_empty(fp);
-	u_sb_inode(fp, sb_inode_empty);
-	int sb_data_empty = f_sb_data_empty(fp);
-	u_sb_data(fp, sb_data_empty);
-	for(int i = 0; i < nd; i++)
-	{
-		direct_array[i] = f_sb_data_empty(fp);
-		u_sb_data(fp, direct_array[i]);
-	}
-	for(int i = 0; i < id; i++)
-	{
-		indirect_array[i] = f_sb_data_empty(fp);
-		u_sb_data(fp, indirect_array[i]);
-	}
-	int sb_indirect = 0, sb_Double = 0;
-	if(indirect >= 1)
-	{
-		sb_indirect = f_sb_data_empty(fp);
-		u_sb_data(fp, sb_indirect);
-	}
-	if(Direct == 1)
-	{
-		sb_Double = f_sb_data_empty(fp);
-		u_sb_data(fp, sb_Double);
-	}
-	write_to_inode_ind(fp, sb_inode_empty, total_byte, sb__data_empty, sb_indirect, sb_Double);
-	write_name_to_dir(fp, ia[nowdir_inode-1], sb_inode_empty, str);
-	link_new_file(ia[nowdir_inode-1], sb_inode_empty, str);
-	datacopy(out, fp, total_byte, sb_data_empty, direct_array, indirect_array, sb_indirect, sb_Double, nd);
-}
-void datacopy(FILE *out, FILE *fp, int size, int data, int * dataa, int * inda, int ind, int Dou, int block)
-{
-		char str[9] = {}; int j = 128;
-	fseek(out, 0, 0); fseek(fp, 16+512+1024+79*512+(128*8)*(data-1), 0);
-	int now = 0; char c;
-	for(; now <= 127; now++)
-	{
-		if((c = getc(out)) == EOF){return;}
-		j = 128;
-		for(int k = 0; k < 8; k++)
-		{
-			str[k] = c / j + '0';
-			c %= j;
-			j /= 2;
-		}
-			fprintf(fp, "%s", str);
-		for(int i = 0; i < 8; i++)
-			str[i] = 0;
-	}
-	for(int i = 0; i < 102; i++)
-	{
-		fseek(fp, 16+512+1024+79*512+(128*8)(ind-1), 0);
-
-
-
-
-
-
-*/
-
-void write_to_inode_ind(FILE *fp, int inode, int size, int dir, int ind, int dou)
-{
-	time_t now = time(NULL);
-	char strTime[32] = {};
-	char strAdr[11] = {};
-	char strsize[18] = {};
-	binary(size, strsize, 17);
-	binary(now, strTime, 31);
-	fseek(fp, 16+512+1024+79*(inode-1), 0);
-	fprintf(fp, "1");
-	fprintf(fp, "%s", strTime);
-	fprintf(fp, "%s", strsize);
-	binary(dir, strAdr, 10);
-	fprintf(fp, "%s", strAdr);
-	binary(ind, strAdr, 10);
-	fprintf(fp, "%s", strAdr);
-	binary(dou, strAdr, 10);
-	fprintf(fp, "%s", strAdr);
-}
-
 	
 
 LINK mytreeshow1(LINK head, int cnt, char *tt, char *tt2)
@@ -1541,67 +986,3 @@ LINK ia_link(LINK head)
 	else return NULL;
 }
 		
-int sb_inode_used_checker(FILE *fp,int inode_num)//myshowinode하기 전에 사용여부 확인해	서 없으면 애초에 다음 함수 안나오게 stop시키기
-{
-	fseek(fp,16+inode_num-1,0);
-	if(getc(fp)=='0')
-		printf("해당 아이노드는 할당되지 않았습니다\n");
-	return 1;
-}
-void show_inode(int inode_num,FILE *fp)
-{
-	inode * ip=(inode*)malloc(sizeof(inode));
-	get_inode(fp,ip,1552 + 79 *(inode_num-1));
-	printf("file type:");
-	printf("%s\n",(ip->ftype)? "regular_file":"directory");
-	printf("file size:");
-	printf("%d\n",ip->size);
-	printf("modified time:");
-	print_time(ip->itime);
-	printf("\n");
-	fseek(fp,16+512+1024+79*(inode_num-1),0);
-	printf("data block list:");
-	data_block_num(fp);
-	data_block_num(fp);
-	data_block_num(fp);
-	printf("\n");
-	//free(ip);
-}
-
-void data_block_num(FILE *fp)//show inode number 
-{
-	int block_number;
-	block_number=binary_changer(fp,10);
-	printf("%d  ",block_number);
-}
-void my_show_block(FILE *fp,int block_num)
-{
-	int ascii;
-
-	fseek(fp,16+512+1024+79*512+128*8*(block_num-1),0);
-	for(int i=0;i<128;i++){
-		ascii=binary_changer(fp,8);
-		printf("%c",ascii);
-	}
-}
-void mystate(FILE *fp)
-{
-	int inode_cnt=0;
-	int db_cnt=0;
-	int i,j;
-	int c;
-
-	fseek(fp,16-1,0);
-	for(i=0;i<512;i++){
-		c=getc(fp);
-		if(c=='0')
-			inode_cnt++;
-	}
-	for(j=0;j<1024;j++){
-		c=getc(fp);
-		if(c=='0')
-			db_cnt++;
-	}
-	printf("free inode : %d\n",inode_cnt);
-	printf("free data block: %d\n",db_cnt);
-}

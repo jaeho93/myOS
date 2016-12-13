@@ -1,0 +1,118 @@
+int 	f_sb_inode_empty(FILE *);
+
+myfs에서 빈 슈퍼블록-아이노드 번호를 찾아 리턴한다.
+
+void 	u_sb_inode(FILE *, int);
+
+myfs에 두번째 매개변수로 받은 수에 해당하는 슈퍼블록-아이노드를 1로 바꾸어 쓴다.
+
+void    r_sb_inode(FILE *, int);
+
+myfs에 두번째 매개변수로 받은 수에 해당하는 슈퍼블록-아이노드를 0로 바꾸어 쓴다.
+
+void	p_sb_inode_used(FILE *);
+
+myfs에서 사용중인 슈퍼블록-아이노드 번호를 출력
+
+
+int 	f_sb_data_empty(FILE *);
+
+myfs에서 빈 슈퍼블록-데이터블록 번호를 찾아 리턴한다.
+
+void 	u_sb_data(FILE *, int);	
+
+myfs에 두번째 매개변수로 받은 수에 해당하는 슈퍼블록-데이터블록을 1로 바꾸어 쓴다.
+
+void    r_sb_data(FILE *, int);	
+
+myfs에 두번째 매개변수로 받은 수에 해당하는 슈퍼블록-데이터블록을 0로 바꾸어 쓴다.
+
+void	p_sb_data_used(FILE *);	
+
+myfs에서 사용중인 슈퍼블록-데이터블록 번호를 출력
+
+void mymkdir(LINK head, FILE *fp, char *);
+
+트리 구조 링크드리스트에 매개변수의 문자열 이름을 가진 디렉터리를 만든다.
+
+void write_to_inode_dir(FILE *fp, int sb_inode_empty, int sb_data_empty, char ftype);
+
+myfs에 해당 아이노드에 디렉터리 아이노드 정보를 저장한다.
+
+void write_to_data_dir(FILE *fp, int sb_inode_empty, int sb_data_empty);
+
+myfs에 해당 데이터블록에 초기 디렉터리의 내용을 저장한다.
+
+void link_newdir_to_list(FILE * fp, LINK head, int sb_inode_empty, char newdir_str[]);
+
+트리구조 링크드리스트에 새로만든 디렉터리를 추가한다.
+
+LINK dir_to_list_sib(FILE *fp, int sb_inode_empty, LINK mother_link);
+
+트리구조 링크드리스트에 새로 만든 디렉터리 자체의 트리를 만든다.
+
+void binary(int time, char*str, int num);
+
+정수를 이진숫자 문자열로 바꾸어준다.
+
+void write_name_to_dir(FILE * fp, LINK head, int sb_inode_empty, char *newdir_str);
+
+현재 디렉터리 데이터블록에 새로 만든 디렉터리의 이름과 아이노드번호를 저장한다.
+
+void mycd(LINK head, FILE *fp, char * gostr);
+
+원하는 디렉터리로 이동한다. 트리구조에서 이동한다.
+
+void myprompt(FILE *);
+
+나의 현재 위치를 표시하는 프롬프트를 띄운다.
+
+void mypwd(FILE *fp);
+
+나의 현재 위치를 절대경로로 출력한다.
+
+void init(FILE*fp);
+
+명령어를 받아 해당하는 함수들을 호출한다.
+
+LINK find_next(LINK head, int *cnt);
+
+트리에서 마지막 파일의 구조체링크와 몇번째인지를 알아낸다.
+
+LINK find_name(LINK head, int inode);
+
+트리에서 아이노드 번호로 이름을 찾는다.
+
+LINK find_inode(LINK head, char * str);
+
+트리에서 이름으로 아이노드 번호를 찾는다.
+
+LINK ia_link(LINK head);
+
+각 트리의 가지축을 링크드리스트로 만들어 배열에 저장한다.
+
+LINK rmtree(LINK head, int inode, int *cnt);
+
+트리에서 아이노드 번호에 해당하는 가지를 제거한다.
+
+LINK find_dir(LINK head, char *str, int *inode, LINK tmp_next);
+
+트리에서 이름으로 해당하는 구조체링크를 찾는다.
+
+void rm_data(FILE *fp, int cnt);
+void myrmdir(FILE *fp, char *ptr);
+LINK mytreeshow1(LINK head, int cnt, char *tt, char *tt2);
+void mytree(char * str, FILE *fp);
+void touch(FILE *fp, int inode);
+void touch_new(FILE *fp, char * str);
+void link_newfile(LINK head, int inode, char *fname);
+void mytouch(FILE *fp, char * str);
+LINK find_file(LINK head, char *str, int *inode);
+LINK rmtree_file(LINK head, int inode, int *cnt);
+void myrm(FILE *fp, char * str);
+void mycpfrom(FILE *fp, char * str1, char * str2);
+void push_DB(FILE *fp, LINKDB database, int datablock, int *cnt, int byte);
+LINKDB write_to_LINK_DB(FILE *out);
+void write_to_inode_ind(FILE *fp, int inode, int size, int dir, int ind, int dou);
+LINKDB db_link(LINKDB * ary, LINKDB head, int *cnt);
+LINKDB find_db(LINKDB head, int size, int *cnt);
